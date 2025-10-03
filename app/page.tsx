@@ -13,10 +13,10 @@ import {
 } from '@heroicons/react/24/outline'
 
 const stats = [
-  { name: 'Total Patients', value: '2,847', icon: UserGroupIcon, change: '+12%', changeType: 'positive' },
-  { name: 'Active Encounters', value: '156', icon: DocumentTextIcon, change: '+8%', changeType: 'positive' },
-  { name: 'Pending Orders', value: '23', icon: ClipboardDocumentListIcon, change: '-3%', changeType: 'negative' },
-  { name: 'Lab Results', value: '89', icon: BeakerIcon, change: '+15%', changeType: 'positive' },
+  { name: 'Total Patients', value: '2,847', icon: UserGroupIcon },
+  { name: 'Active Encounters', value: '156', icon: DocumentTextIcon },
+  { name: 'Pending Orders', value: '23', icon: ClipboardDocumentListIcon },
+  { name: 'Lab Results', value: '89', icon: BeakerIcon },
 ]
 
 const recentActivity = [
@@ -133,12 +133,6 @@ export default function Dashboard() {
                           <dd className="flex items-baseline">
                             <div className="text-2xl font-semibold text-gray-900 dark:text-white">
                               {stat.value}
-                            </div>
-                            <div className={classNames(
-                              stat.changeType === 'positive' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
-                              'ml-2 flex items-baseline text-sm font-semibold'
-                            )}>
-                              {stat.change}
                             </div>
                           </dd>
                         </dl>
