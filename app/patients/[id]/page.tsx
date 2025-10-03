@@ -285,36 +285,36 @@ export default function PatientDetailPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'upcoming':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+        return 'bg-blue-50 text-blue-700 ring-1 ring-blue-600/20 ring-inset dark:bg-blue-500/10 dark:text-blue-500 dark:ring-blue-500/10'
       case 'completed':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+        return 'bg-green-50 text-green-700 ring-1 ring-green-600/20 ring-inset dark:bg-green-500/10 dark:text-green-500 dark:ring-green-500/10'
       case 'cancelled':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+        return 'bg-red-50 text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-500/10 dark:text-red-500 dark:ring-red-500/10'
       case 'active':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+        return 'bg-green-50 text-green-700 ring-1 ring-green-600/20 ring-inset dark:bg-green-500/10 dark:text-green-500 dark:ring-green-500/10'
       case 'discontinued':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+        return 'bg-gray-50 text-gray-700 ring-1 ring-gray-600/20 ring-inset dark:bg-gray-500/10 dark:text-gray-500 dark:ring-gray-500/10'
       case 'paid':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+        return 'bg-green-50 text-green-700 ring-1 ring-green-600/20 ring-inset dark:bg-green-500/10 dark:text-green-500 dark:ring-green-500/10'
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+        return 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-600/20 ring-inset dark:bg-yellow-500/10 dark:text-yellow-500 dark:ring-yellow-500/10'
       case 'overdue':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+        return 'bg-red-50 text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-500/10 dark:text-red-500 dark:ring-red-500/10'
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+        return 'bg-gray-50 text-gray-700 ring-1 ring-gray-600/20 ring-inset dark:bg-gray-500/10 dark:text-gray-500 dark:ring-gray-500/10'
     }
   }
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'mild':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+        return 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-600/20 ring-inset dark:bg-yellow-500/10 dark:text-yellow-500 dark:ring-yellow-500/10'
       case 'moderate':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
+        return 'bg-orange-50 text-orange-700 ring-1 ring-orange-600/20 ring-inset dark:bg-orange-500/10 dark:text-orange-500 dark:ring-orange-500/10'
       case 'severe':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+        return 'bg-red-50 text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-500/10 dark:text-red-500 dark:ring-red-500/10'
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+        return 'bg-gray-50 text-gray-700 ring-1 ring-gray-600/20 ring-inset dark:bg-gray-500/10 dark:text-gray-500 dark:ring-gray-500/10'
     }
   }
 
@@ -572,7 +572,7 @@ export default function PatientDetailPage() {
                                 )}
                               </div>
                               <span className={classNames(
-                                'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                                'inline-flex items-center px-2 py-2 rounded-md text-xs font-medium',
                                 getStatusColor(appointment.status)
                               )}>
                                 {appointment.status}
@@ -615,7 +615,7 @@ export default function PatientDetailPage() {
                                 )}
                               </div>
                               <span className={classNames(
-                                'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                                'inline-flex items-center px-2 py-2 rounded-md text-xs font-medium',
                                 getStatusColor(appointment.status)
                               )}>
                                 {appointment.status}
@@ -658,7 +658,7 @@ export default function PatientDetailPage() {
                               </p>
                             </div>
                             <span className={classNames(
-                              'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                              'inline-flex items-center px-2.5 py-2 rounded-md text-xs font-medium',
                               getStatusColor(medication.status)
                             )}>
                               {medication.status}
@@ -736,7 +736,7 @@ export default function PatientDetailPage() {
                               </p>
                             </div>
                             <span className={classNames(
-                              'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                              'inline-flex items-center px-2.5 py-2 rounded-md text-xs font-medium',
                               getSeverityColor(allergy.severity)
                             )}>
                               {allergy.severity}
@@ -783,7 +783,7 @@ export default function PatientDetailPage() {
                                   ${payment.amount.toFixed(2)}
                                 </p>
                                 <span className={classNames(
-                                  'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                                  'inline-flex items-center px-2 py-2 rounded-md text-xs font-medium',
                                   getStatusColor(payment.status)
                                 )}>
                                   {payment.status}
@@ -823,7 +823,7 @@ export default function PatientDetailPage() {
                                   ${payment.amount.toFixed(2)}
                                 </p>
                                 <span className={classNames(
-                                  'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                                  'inline-flex items-center px-2 py-2 rounded-md text-xs font-medium',
                                   getStatusColor(payment.status)
                                 )}>
                                   {payment.status}
@@ -856,7 +856,7 @@ export default function PatientDetailPage() {
                               {insurance.provider}
                             </h4>
                             {insurance.primary && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                              <span className="inline-flex items-center px-2 py-2 rounded-md text-xs font-medium bg-blue-50 text-blue-700 ring-1 ring-blue-600/20 ring-inset dark:bg-blue-500/10 dark:text-blue-500 dark:ring-blue-500/10">
                                 Primary
                               </span>
                             )}

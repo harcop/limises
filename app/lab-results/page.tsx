@@ -114,15 +114,15 @@ export default function LabResultsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Normal':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+        return 'bg-green-50 text-green-700 ring-1 ring-green-600/20 ring-inset dark:bg-green-500/10 dark:text-green-500 dark:ring-green-500/10'
       case 'Abnormal':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+        return 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-600/20 ring-inset dark:bg-yellow-500/10 dark:text-yellow-500 dark:ring-yellow-500/10'
       case 'Critical':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+        return 'bg-red-50 text-red-700 ring-1 ring-red-600/20 ring-inset dark:bg-red-500/10 dark:text-red-500 dark:ring-red-500/10'
       case 'Pending':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+        return 'bg-blue-50 text-blue-700 ring-1 ring-blue-600/20 ring-inset dark:bg-blue-500/10 dark:text-blue-500 dark:ring-blue-500/10'
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+        return 'bg-gray-50 text-gray-700 ring-1 ring-gray-600/20 ring-inset dark:bg-gray-500/10 dark:text-gray-500 dark:ring-gray-500/10'
     }
   }
 
@@ -350,7 +350,7 @@ export default function LabResultsPage() {
                             </td>
                             <td className="hidden py-5 pl-8 pr-0 text-right align-top tabular-nums text-gray-700 sm:table-cell dark:text-gray-300">
                               <span className={classNames(
-                                'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                                'inline-flex items-center rounded-md px-2 py-2 text-xs font-medium',
                                 getStatusColor(result.status)
                               )}>
                                 {result.status}
@@ -453,7 +453,7 @@ export default function LabResultsPage() {
                         <div className="mt-4">
                           <span className="font-medium text-gray-700 dark:text-gray-300">Status:</span>
                           <span className={classNames(
-                            'ml-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                            'ml-2 inline-flex items-center rounded-md px-2.5 py-2 text-xs font-medium',
                             getStatusColor(selectedResult.status)
                           )}>
                             {selectedResult.status}

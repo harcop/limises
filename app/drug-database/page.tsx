@@ -401,7 +401,7 @@ export default function DrugDatabasePage() {
                                 {drug.genericName}
                               </p>
                             </div>
-                            <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400">
+                            <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-2 text-xs font-medium text-indigo-700 ring-1 ring-indigo-600/20 ring-inset dark:bg-indigo-500/10 dark:text-indigo-500 dark:ring-indigo-500/10">
                               {drug.drugClass}
                             </span>
                           </div>
@@ -428,7 +428,7 @@ export default function DrugDatabasePage() {
                           <div className="flex items-center justify-between">
                             <div className="flex flex-wrap gap-1">
                               {drug.indications.slice(0, 2).map((indication, index) => (
-                                <span key={index} className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/20 dark:text-green-400">
+                                <span key={index} className="inline-flex items-center rounded-md bg-green-50 px-2 py-2 text-xs font-medium text-green-700 ring-1 ring-green-600/20 ring-inset dark:bg-green-500/10 dark:text-green-500 dark:ring-green-500/10">
                                   {indication}
                                 </span>
                               ))}
@@ -485,7 +485,7 @@ export default function DrugDatabasePage() {
                                 {drug.genericName}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400">
+                                <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-2 text-xs font-medium text-indigo-700 ring-1 ring-indigo-600/20 ring-inset dark:bg-indigo-500/10 dark:text-indigo-500 dark:ring-indigo-500/10">
                                   {drug.drugClass}
                                 </span>
                               </td>
@@ -552,7 +552,7 @@ export default function DrugDatabasePage() {
                         <p className="text-lg text-gray-500 dark:text-gray-400 mt-1">
                           {selectedDrug.genericName}
                         </p>
-                        <span className="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400 mt-2">
+                        <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-2 text-xs font-medium text-indigo-700 ring-1 ring-indigo-600/20 ring-inset dark:bg-indigo-500/10 dark:text-indigo-500 dark:ring-indigo-500/10 mt-2">
                           {selectedDrug.drugClass}
                         </span>
                       </div>
@@ -579,7 +579,7 @@ export default function DrugDatabasePage() {
                           <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-3">Brand Names</h4>
                           <div className="flex flex-wrap gap-2">
                             {selectedDrug.brandNames.map((brand, index) => (
-                              <span key={index} className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                              <span key={index} className="inline-flex items-center rounded-md bg-blue-50 px-2 py-2 text-xs font-medium text-blue-700 ring-1 ring-blue-600/20 ring-inset dark:bg-blue-500/10 dark:text-blue-500 dark:ring-blue-500/10">
                                 {brand}
                               </span>
                             ))}
@@ -633,7 +633,7 @@ export default function DrugDatabasePage() {
                           <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-3">Side Effects</h4>
                           <div className="flex flex-wrap gap-2">
                             {selectedDrug.sideEffects.map((sideEffect, index) => (
-                              <span key={index} className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400">
+                              <span key={index} className="inline-flex items-center rounded-md bg-yellow-50 px-2 py-2 text-xs font-medium text-yellow-700 ring-1 ring-yellow-600/20 ring-inset dark:bg-yellow-500/10 dark:text-yellow-500 dark:ring-yellow-500/10">
                                 {sideEffect}
                               </span>
                             ))}
