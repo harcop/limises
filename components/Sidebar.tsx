@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import {
   Dialog,
   DialogBackdrop,
@@ -21,15 +22,15 @@ import {
 import { Bars3Icon } from '@heroicons/react/20/solid'
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: ChartBarIcon, current: true },
-  { name: 'Patients', href: '/patients', icon: UserGroupIcon, current: false },
-  { name: 'Clinical Notes', href: '/clinical-notes', icon: DocumentTextIcon, current: false },
-  { name: 'Orders', href: '/orders', icon: ClipboardDocumentListIcon, current: false },
-  { name: 'Lab Results', href: '/lab-results', icon: BeakerIcon, current: false },
-  { name: 'Medications', href: '/medications', icon: HeartIcon, current: false },
-  { name: 'Drug Database', href: '/drug-database', icon: BookOpenIcon, current: false },
-  { name: 'Scheduling', href: '/scheduling', icon: CalendarDaysIcon, current: false },
-  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon, current: false },
+  { name: 'Dashboard', href: '/', icon: ChartBarIcon },
+  { name: 'Patients', href: '/patients', icon: UserGroupIcon },
+  { name: 'Clinical Notes', href: '/clinical-notes', icon: DocumentTextIcon },
+  { name: 'Orders', href: '/orders', icon: ClipboardDocumentListIcon },
+  { name: 'Lab Results', href: '/lab-results', icon: BeakerIcon },
+  { name: 'Medications', href: '/medications', icon: HeartIcon },
+  { name: 'Drug Database', href: '/drug-database', icon: BookOpenIcon },
+  { name: 'Scheduling', href: '/scheduling', icon: CalendarDaysIcon },
+  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ]
 
 const departments = [
@@ -48,6 +49,14 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
+  const pathname = usePathname()
+  
+  // Create navigation with dynamic current state
+  const navigationWithCurrent = navigation.map(item => ({
+    ...item,
+    current: pathname === item.href
+  }))
+
   return (
     <>
       {/* Mobile sidebar */}
@@ -76,7 +85,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 <ul role="list" className="flex flex-1 flex-col gap-y-7">
                   <li>
                     <ul role="list" className="-mx-2 space-y-1">
-                      {navigation.map((item) => (
+                      {navigationWithCurrent.map((item) => (
                         <li key={item.name}>
                           <a
                             href={item.href}
@@ -168,7 +177,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
               <li>
                 <ul role="list" className="-mx-2 space-y-1">
-                  {navigation.map((item) => (
+                  {navigationWithCurrent.map((item) => (
                     <li key={item.name}>
                       <a
                         href={item.href}
