@@ -1,0 +1,125 @@
+# 🧾 Product Requirements Document (PRD)
+
+## 1. Product Overview
+
+**Product Name:** Electronic Medical Record (EMR) System (LIMISES)
+**Version:** 1.0
+**Owner:** [Toluwap]
+**Date:** [03-10-2025]
+
+### 1.1. Purpose
+
+The EMR System is designed to digitize and streamline clinical workflows by providing healthcare providers with an integrated platform to manage patient records, clinical documentation, and administrative operations. It replaces traditional paper-based workflows, improving efficiency, data accuracy, and patient safety.
+
+### 1.2. Objectives
+
+* Centralize patient health records in a secure, accessible system.
+* Improve clinical decision-making through accurate and timely data.
+* Enhance interoperability with other healthcare systems (labs, pharmacies, billing).
+* Ensure compliance with healthcare data standards and privacy regulations (e.g., HIPAA).
+
+### 1.3. Target Users
+
+* Physicians and Clinicians
+* Nurses and Medical Assistants
+* Administrative Staff
+* Billing and Coding Specialists
+* Healthcare IT Administrators
+
+---
+
+## 2. Scope
+
+### 2.1. In Scope
+
+The EMR system will include the following modules:
+
+1. Patient Registration
+2. Clinical Documentation
+3. Order Entry (CPOE)
+4. E-Prescribing
+5. Lab & Results Management
+6. Problem List & Diagnoses
+7. Medication Management
+8. Billing & Coding
+9. Scheduling
+10. Reporting & Analytics
+
+### 2.2. Out of Scope
+
+* Patient-facing portal (Phase 2)
+* Integration with external HIEs (future release)
+* AI-driven predictive analytics (future roadmap)
+
+---
+
+## 3. Functional Requirements by Module
+
+| **Module**                      | **Description**                                                                 | **Key Features**                                                                            | **Examples of Data Stored**             |
+| ------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **1. Patient Registration**     | Captures patient demographics, identifiers, and contact details.                | - Create/edit patient profile<br>- Validate insurance info<br>- Search and retrieve records | Name, DOB, Address, Insurance Info      |
+| **2. Clinical Documentation**   | Records encounters, progress notes, and SOAP notes.                             | - SOAP note templates<br>- Encounter summaries<br>- Attach clinical documents               | Visit Summaries, Physician Notes        |
+| **3. Order Entry (CPOE)**       | Allows providers to place electronic orders for labs, imaging, and medications. | - Order sets<br>- Validation rules<br>- Order tracking                                      | Lab Test Orders, Prescriptions          |
+| **4. E-Prescribing**            | Enables electronic prescribing and pharmacy integration.                        | - Drug database search<br>- Refill requests<br>- Drug interaction alerts                    | Medication Name, Dosage, Refill Info    |
+| **5. Lab & Results Management** | Tracks lab orders and results.                                                  | - Lab order tracking<br>- Result notifications<br>- Result history view                     | Blood Test Results, Imaging Reports     |
+| **6. Problem List & Diagnoses** | Maintains list of active/past diagnoses.                                        | - ICD-10 code lookup<br>- Problem history tracking<br>- Categorization by chronicity        | ICD-10 Codes, Diagnosis Descriptions    |
+| **7. Medication Management**    | Tracks medication history and allergies.                                        | - Active/past medication list<br>- Allergy alerts<br>- Interaction checker                  | Medication Lists, Allergy Alerts        |
+| **8. Billing & Coding**         | Integrates documentation with billing workflows.                                | - Automatic CPT/ICD-10 code suggestions<br>- Claim submission<br>- Insurance validation     | CPT Codes, Insurance Claims             |
+| **9. Scheduling**               | Manages appointments and provider calendars.                                    | - Appointment booking<br>- Automated reminders<br>- Availability management                 | Appointment Times, Reminders            |
+| **10. Reporting & Analytics**   | Provides dashboards for clinical, financial, and compliance insights.           | - KPI dashboards<br>- Custom report builder<br>- Export to CSV/PDF                          | Quality Metrics, Performance Dashboards |
+
+---
+
+## 4. Non-Functional Requirements
+
+| Category             | Requirement                                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Security**         | Must comply with HIPAA standards; support role-based access control, data encryption (AES-256), and audit logs. |
+| **Performance**      | System should load main dashboard in <3 seconds; API response time <500ms under normal load.                    |
+| **Scalability**      | Must support 10,000 concurrent users and 1M patient records.                                                    |
+| **Availability**     | 99.9% uptime; disaster recovery plan with daily backups.                                                        |
+| **Usability**        | UI must follow accessibility standards (WCAG 2.1 AA).                                                           |
+| **Interoperability** | Support HL7, FHIR APIs, and integration with third-party labs and pharmacies.                                   |
+| **Maintainability**  | Modular architecture for easy updates and hotfixes.                                                             |
+
+---
+
+## 5. User Stories (Examples)
+
+1. As a **physician**, I want to create and view SOAP notes so I can document patient encounters.
+2. As a **nurse**, I want to order lab tests electronically so I can streamline patient workflows.
+3. As a **billing specialist**, I want automated coding suggestions so I can reduce claim denials.
+4. As a **scheduler**, I want to manage provider calendars so I can optimize appointments.
+5. As an **administrator**, I want to generate compliance reports so I can ensure regulatory adherence.
+
+---
+
+## 7. Success Metrics
+
+| Goal                        | KPI                            | Target |
+| --------------------------- | ------------------------------ | ------ |
+| Improve clinical efficiency | Time spent per patient record  | ↓ 30%  |
+| Reduce errors               | Duplicate or incorrect records | ↓ 50%  |
+| Enhance compliance          | Audit trail completeness       | 100%   |
+| User adoption               | Active users post-launch       | ≥ 85%  |
+
+---
+
+## 8. Risks & Mitigation
+
+| Risk                  | Mitigation                        |
+| --------------------- | --------------------------------- |
+| Integration delays    | Use standardized FHIR APIs        |
+| User resistance       | Provide training & phased rollout |
+| Data migration issues | Conduct pilot with sample data    |
+| Compliance violations | Regular security audits           |
+
+---
+
+## 9. Timeline (High-Level)
+
+| Phase   | Deliverable                      | Timeline |
+| ------- | -------------------------------- | -------- |
+| Phase 1 | Core Modules (Reg, Docs, Orders) | Q1 2025  |
+| Phase 2 | Billing, Scheduling, Reporting   | Q2 2025  |
+| Phase 3 | Advanced Analytics, AI Support   | Q3 2025  |
