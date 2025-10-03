@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Sidebar from '../../components/Sidebar'
 import Header from '../../components/Header'
 import {
@@ -62,10 +63,10 @@ function classNames(...classes: string[]) {
 }
 
 export default function PatientsPage() {
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showNewPatientForm, setShowNewPatientForm] = useState(false)
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
 
   const filteredPatients = mockPatients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -192,7 +193,7 @@ export default function PatientsPage() {
                           </td>
                           <td className="py-5 pl-8 pr-0 text-right align-top tabular-nums text-gray-700 dark:text-gray-300">
                             <button
-                              onClick={() => setSelectedPatient(patient)}
+                              onClick={() => router.push(`/patients/${patient.id}`)}
                               className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
                             >
                               View Details
@@ -291,112 +292,6 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* Patient Details Modal */}
-      {selectedPatient && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setSelectedPatient(null)} />
-            
-            <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
-              <div className="bg-white dark:bg-gray-800 px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold leading-6 text-gray-900 dark:text-white">
-                        Patient Details
-                      </h3>
-                      <button
-                        onClick={() => setSelectedPatient(null)}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                      >
-                        <span className="sr-only">Close</span>
-                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Full Name
-                          </label>
-                          <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPatient.name}</p>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Medical Record Number
-                          </label>
-                          <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPatient.mrn}</p>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Date of Birth
-                          </label>
-                          <p className="mt-1 text-sm text-gray-900 dark:text-white">
-                            {new Date(selectedPatient.dateOfBirth).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Phone Number
-                          </label>
-                          <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPatient.phone}</p>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Email Address
-                          </label>
-                          <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPatient.email}</p>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Last Visit
-                          </label>
-                          <p className="mt-1 text-sm text-gray-900 dark:text-white">
-                            {new Date(selectedPatient.lastVisit).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-6">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Address
-                      </label>
-                      <p className="mt-1 text-sm text-gray-900 dark:text-white">{selectedPatient.address}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                <button
-                  type="button"
-                  className="btn-primary sm:ml-3"
-                  onClick={() => setSelectedPatient(null)}
-                >
-                  Edit Patient
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary mt-3 sm:mt-0"
-                  onClick={() => setSelectedPatient(null)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
