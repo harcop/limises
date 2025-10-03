@@ -29,6 +29,7 @@ interface Medication {
   interactions?: string[]
 }
 
+
 const mockMedications: Medication[] = [
   {
     id: '1',
@@ -116,6 +117,7 @@ const mockAllergies = [
     dateReported: '2021-11-10',
   },
 ]
+
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ')
@@ -299,7 +301,7 @@ export default function MedicationsPage() {
                       'whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm'
                     )}
                   >
-                    Medications
+                    Patient Medications
                   </button>
                   <button
                     onClick={() => setActiveTab('allergies')}
@@ -460,6 +462,7 @@ export default function MedicationsPage() {
                 </div>
               </div>
             )}
+
           </div>
         </main>
       </div>
@@ -721,6 +724,7 @@ export default function MedicationsPage() {
           </div>
         </div>
       )}
+
     </div>
   )
 }

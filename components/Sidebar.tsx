@@ -16,6 +16,7 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   XMarkIcon,
+  BookOpenIcon,
 } from '@heroicons/react/24/outline'
 import { Bars3Icon } from '@heroicons/react/20/solid'
 
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Orders', href: '/orders', icon: ClipboardDocumentListIcon, current: false },
   { name: 'Lab Results', href: '/lab-results', icon: BeakerIcon, current: false },
   { name: 'Medications', href: '/medications', icon: HeartIcon, current: false },
+  { name: 'Drug Database', href: '/drug-database', icon: BookOpenIcon, current: false },
   { name: 'Scheduling', href: '/scheduling', icon: CalendarDaysIcon, current: false },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon, current: false },
 ]
