@@ -120,25 +120,48 @@ sequenceDiagram
     participant DRUG as Drug Database
     participant ALERT as Alert System
     participant DR as Doctor
+    participant MULTI_DB as Multiple Drug Databases
+    participant REAL_TIME as Real-time Checking
+    participant AUDIT as Audit System
+    participant SEVERITY as Severity Assessment
 
     PHARM->>PHARMSYS: Enter prescription
     PHARMSYS->>DB: Get patient medication history
     DB-->>PHARMSYS: Return current medications
-    PHARMSYS->>CDSS: Check for interactions
-    CDSS->>DRUG: Query drug interaction database
-    DRUG-->>CDSS: Return interaction data
+    PHARMSYS->>REAL_TIME: Initiate real-time checking
+    REAL_TIME->>CDSS: Check for interactions
+    CDSS->>MULTI_DB: Query multiple drug databases
+    MULTI_DB->>DRUG: Query primary drug database
+    DRUG-->>MULTI_DB: Return interaction data
+    MULTI_DB->>MULTI_DB: Query secondary databases
+    MULTI_DB-->>CDSS: Return comprehensive interaction data
+    CDSS->>SEVERITY: Assess interaction severity
+    SEVERITY->>SEVERITY: Classify severity levels
+    Note over SEVERITY: - Contraindicated<br/>- Major<br/>- Moderate<br/>- Minor
+    SEVERITY-->>CDSS: Return severity assessment
     CDSS->>CDSS: Analyze potential interactions
     alt Interactions Found
         CDSS->>ALERT: Generate interaction alert
+        ALERT->>SEVERITY: Get severity level
+        SEVERITY-->>ALERT: Return severity
         ALERT-->>PHARMSYS: Display interaction warning
         PHARMSYS-->>PHARM: Show interaction alerts
-        PHARM->>DR: Consult about interaction
-        DR->>PHARMSYS: Provide clinical decision
-        PHARMSYS->>DB: Record interaction resolution
+        alt Severe Interaction (Contraindicated/Major)
+            PHARM->>DR: Consult about interaction
+            DR->>PHARMSYS: Provide clinical decision
+            PHARMSYS->>AUDIT: Log clinical consultation
+            AUDIT->>DB: Save consultation record
+            PHARMSYS->>DB: Record interaction resolution
+        else Moderate/Minor Interaction
+            PHARM->>PHARMSYS: Acknowledge interaction
+            PHARMSYS->>DB: Record acknowledgment
+        end
     else No Interactions
         CDSS-->>PHARMSYS: No interactions detected
         PHARMSYS-->>PHARM: Prescription safe to dispense
     end
+    PHARMSYS->>AUDIT: Log interaction check
+    AUDIT->>DB: Save audit trail
     PHARMSYS->>DB: Save interaction check results
     PHARMSYS-->>PHARM: Interaction check complete
 ```
@@ -155,6 +178,10 @@ sequenceDiagram
     participant DEA as DEA System
     participant SECURITY as Security System
     participant NOT as Notification Service
+    participant AUDIT as Audit System
+    participant REGULATORY as Regulatory Reporting
+    participant BIOMETRIC as Biometric Verification
+    participant LIMIT as Prescription Limit Check
 
     P->>PHARM: Presents controlled substance prescription
     PHARM->>PHARMSYS: Access prescription
@@ -162,21 +189,53 @@ sequenceDiagram
     DB-->>PHARMSYS: Return prescription details
     PHARMSYS->>DEA: Verify DEA number
     DEA-->>PHARMSYS: DEA verification result
-    PHARMSYS->>NARCOTIC: Check narcotic register
-    NARCOTIC->>DB: Query controlled substance records
-    DB-->>NARCOTIC: Return narcotic data
-    NARCOTIC-->>PHARMSYS: Register status
-    PHARMSYS->>SECURITY: Access controlled storage
-    SECURITY->>PHARMSYS: Unlock controlled substances
-    PHARM->>PHARMSYS: Dispense controlled substance
-    PHARMSYS->>NARCOTIC: Record dispensing
-    NARCOTIC->>DB: Update narcotic register
-    PHARMSYS->>P: Request patient signature
-    P->>PHARMSYS: Signs for medication
-    PHARMSYS->>DB: Record patient signature
-    PHARMSYS->>NOT: Send dispensing notification
-    NOT->>DEA: Controlled substance report
-    PHARMSYS-->>PHARM: Controlled substance dispensed
+    alt DEA Verification Failed
+        PHARMSYS->>AUDIT: Log DEA failure
+        AUDIT->>DB: Save audit log
+        PHARMSYS-->>PHARM: DEA verification failed
+        PHARM->>P: Prescription cannot be filled
+    else DEA Verification Success
+        PHARMSYS->>LIMIT: Check prescription limits
+        LIMIT->>DB: Query patient prescription history
+        DB-->>LIMIT: Return prescription data
+        LIMIT-->>PHARMSYS: Limit check result
+        alt Limit Exceeded
+            PHARMSYS->>AUDIT: Log limit exceeded
+            AUDIT->>DB: Save audit log
+            PHARMSYS-->>PHARM: Prescription limit exceeded
+            PHARM->>P: Prescription limit exceeded
+        else Within Limits
+            PHARMSYS->>NARCOTIC: Check narcotic register
+            NARCOTIC->>DB: Query controlled substance records
+            DB-->>NARCOTIC: Return narcotic data
+            NARCOTIC-->>PHARMSYS: Register status
+            PHARMSYS->>SECURITY: Access controlled storage
+            SECURITY->>BIOMETRIC: Verify pharmacist identity
+            BIOMETRIC->>DB: Verify biometric data
+            DB-->>BIOMETRIC: Biometric verification result
+            alt Biometric Verification Failed
+                BIOMETRIC-->>SECURITY: Access denied
+                SECURITY-->>PHARMSYS: Access denied
+                PHARMSYS-->>PHARM: Access denied
+            else Biometric Verification Success
+                BIOMETRIC-->>SECURITY: Access granted
+                SECURITY->>PHARMSYS: Unlock controlled substances
+                PHARM->>PHARMSYS: Dispense controlled substance
+                PHARMSYS->>NARCOTIC: Record dispensing
+                NARCOTIC->>DB: Update narcotic register
+                PHARMSYS->>P: Request patient signature
+                P->>PHARMSYS: Signs for medication
+                PHARMSYS->>DB: Record patient signature
+                PHARMSYS->>AUDIT: Log controlled substance dispensing
+                AUDIT->>DB: Save audit trail
+                PHARMSYS->>REGULATORY: Generate regulatory report
+                REGULATORY->>DB: Save regulatory data
+                PHARMSYS->>NOT: Send dispensing notification
+                NOT->>DEA: Controlled substance report
+                PHARMSYS-->>PHARM: Controlled substance dispensed
+            end
+        end
+    end
 ```
 
 ## Medication Reconciliation Flow

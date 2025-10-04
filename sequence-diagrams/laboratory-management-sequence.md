@@ -212,23 +212,46 @@ sequenceDiagram
     participant DR as Doctor
     participant NURSE as Nurse
     participant PATH as Pathologist
+    participant ESCALATION as Escalation System
+    participant AUDIT as Audit System
+    participant SMS as SMS Service
+    participant EMAIL as Email Service
+    participant PHONE as Phone System
 
     ANALYZER->>LAB: Critical result detected
     LAB->>CRITICAL: Process critical alert
     CRITICAL->>DB: Log critical result
+    CRITICAL->>AUDIT: Log critical alert
+    AUDIT->>DB: Save audit trail
     CRITICAL->>NOT: Send critical alert
-    NOT->>DR: Critical result call
+    NOT->>SMS: Send SMS alert
+    SMS->>DR: SMS notification
+    NOT->>EMAIL: Send email alert
+    EMAIL->>DR: Email notification
+    NOT->>PHONE: Make phone call
+    PHONE->>DR: Phone call
     NOT->>NURSE: Critical result notification
     NOT->>PATH: Critical result alert
+    CRITICAL->>ESCALATION: Start escalation timer
+    ESCALATION->>ESCALATION: Wait for acknowledgment
+    alt No Acknowledgment Within Time Limit
+        ESCALATION->>NOT: Send escalation alert
+        NOT->>DR: Escalation notification
+        NOT->>PATH: Escalation alert
+        ESCALATION->>DB: Log escalation
+    end
     DR->>LAB: Acknowledge critical result
     LAB->>CRITICAL: Record acknowledgment
     CRITICAL->>DB: Update critical result status
+    CRITICAL->>ESCALATION: Stop escalation timer
     DR->>LAB: Take clinical action
     LAB->>DB: Record clinical response
     CRITICAL->>NOT: Send follow-up notification
     NOT->>PATH: Follow-up critical result
     PATH->>LAB: Confirm critical result
     LAB->>DB: Final critical result status
+    CRITICAL->>AUDIT: Log critical result completion
+    AUDIT->>DB: Save completion audit
 ```
 
 ## Microbiology Culture Flow
@@ -279,15 +302,22 @@ sequenceDiagram
     participant ANALYZER as Lab Analyzer
     participant WESTGARD as Westgard Rules
     participant NOT as Notification Service
+    participant EQA as External QA System
+    participant AUDIT as Audit System
+    participant CORRECTIVE as Corrective Action
 
     TECH->>LAB: Start QC run
     LAB->>QC: Initiate quality control
     QC->>ANALYZER: Run control samples
     ANALYZER->>QC: Return QC results
     QC->>WESTGARD: Apply Westgard rules
+    WESTGARD->>WESTGARD: Evaluate QC results
+    Note over WESTGARD: Apply 1-2s, 1-3s, 2-2s,<br/>R-4s, 4-1s, 10x rules
     WESTGARD->>QC: Evaluate QC results
     alt QC In Control
         QC->>DB: Record QC results
+        QC->>AUDIT: Log QC success
+        AUDIT->>DB: Save QC audit
         QC->>LAB: QC passed
         LAB->>ANALYZER: Allow patient testing
         ANALYZER->>LAB: Process patient samples
@@ -301,7 +331,20 @@ sequenceDiagram
         ANALYZER->>QC: Re-run QC
         QC->>WESTGARD: Re-evaluate QC
         WESTGARD-->>QC: New QC assessment
+        alt QC Still Out of Control
+            QC->>CORRECTIVE: Initiate corrective action
+            CORRECTIVE->>DB: Record corrective measures
+            CORRECTIVE->>EQA: Report to external QA
+            EQA->>DB: Log external QA report
+            CORRECTIVE->>NOT: Send corrective action alert
+            NOT->>TECH: Corrective action required
+        end
     end
+    QC->>EQA: Submit QC data to external QA
+    EQA->>DB: Store external QA data
+    EQA->>EQA: Compare with peer laboratories
+    EQA-->>QC: External QA results
+    QC->>DB: Update QC performance metrics
 ```
 
 ## External Quality Assurance Flow

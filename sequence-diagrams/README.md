@@ -239,14 +239,64 @@ These diagrams should be updated when:
 - Integration points change
 - New regulatory requirements are implemented
 
+## Recently Added Modules
+
+The following modules have been added to complete the comprehensive coverage:
+- **Emergency & Ambulance Management Module** (`emergency-ambulance-management-sequence.md`)
+  - Emergency patient registration flow
+  - Advanced triage system flow (ESI 5-level)
+  - Ambulance dispatch and tracking flow
+  - Pre-hospital care documentation flow
+  - Trauma team activation flow
+  - Critical care pathway flow
+  - Mass casualty incident management flow
+  - Emergency analytics and reporting flow
+  - Emergency integration flow
+
+- **Operation Theatre Management Module** (`operation-theatre-management-sequence.md`)
+  - OT scheduling and resource management flow
+  - Pre-operative assessment and preparation flow
+  - Intra-operative documentation flow
+  - Surgical team management flow
+  - Consumables and implant tracking flow
+  - Post-operative care coordination flow
+  - OT utilization and performance analytics flow
+  - OT integration flow
+  - OT quality assurance and safety flow
+  - OT equipment management and maintenance flow
+
+- **Radiology & Imaging Module** (`radiology-imaging-sequence.md`)
+  - Imaging order management flow
+  - PACS integration and image storage flow
+  - Radiologist reporting and workflow flow
+  - Critical results management flow
+  - Contrast media management flow
+  - Radiation dose tracking flow
+  - Radiology analytics and reporting flow
+  - Radiology integration flow
+  - Radiology quality assurance flow
+  - Radiology equipment management flow
+
+- **System Integration & Security Module** (`system-integration-security-sequence.md`)
+  - API management and integration flow
+  - Data integration and ETL processes flow
+  - Third-party system integration flow
+  - Security framework and compliance flow
+  - Audit logging and monitoring flow
+  - Disaster recovery and backup flow
+  - Data privacy and protection flow
+  - System health monitoring flow
+  - Integration testing and validation flow
+  - Security incident response flow
+
 ## Future Enhancements
 
 The sequence diagrams will be expanded to include:
-- Emergency Management Module
-- Operation Theatre Management Module
-- Radiology & Imaging Module
-- System Integration & Security Module
 - Additional specialized workflows and edge cases
+- Advanced AI/ML integration flows
+- Mobile application workflows
+- Telemedicine platform integrations
+- Advanced analytics and predictive modeling flows
 
 ## Contributing
 

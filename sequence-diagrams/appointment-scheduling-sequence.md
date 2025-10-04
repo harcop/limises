@@ -9,9 +9,12 @@ sequenceDiagram
     participant HMS as HMS System
     participant SCHED as Scheduling System
     participant DB as Database
+    participant INS as Insurance System
     participant PAY as Payment System
     participant NOT as Notification Service
     participant DR as Doctor
+    participant VERIFY as Insurance Verification
+    participant AUDIT as Audit System
 
     P->>PORTAL: Access appointment booking
     PORTAL->>HMS: Request available providers
@@ -27,16 +30,57 @@ sequenceDiagram
     PORTAL->>HMS: Create appointment request
     HMS->>DB: Check slot availability
     DB-->>HMS: Slot available
-    HMS->>PAY: Process payment
-    PAY->>P: Request payment details
-    P->>PAY: Provide payment information
-    PAY-->>HMS: Payment successful
-    HMS->>DB: Create appointment record
-    HMS->>NOT: Send confirmation
-    NOT->>P: Appointment confirmation
-    NOT->>DR: New appointment notification
-    HMS-->>PORTAL: Booking successful
-    PORTAL-->>P: Appointment confirmed
+    HMS->>VERIFY: Verify insurance eligibility
+    VERIFY->>INS: Check insurance coverage
+    INS-->>VERIFY: Return coverage details
+    VERIFY-->>HMS: Insurance verification result
+    alt Insurance Coverage Available
+        HMS->>PAY: Calculate copay/deductible
+        PAY->>HMS: Return payment amount
+        HMS->>PAY: Process payment
+        PAY->>P: Request payment details
+        P->>PAY: Provide payment information
+        alt Payment Successful
+            PAY-->>HMS: Payment successful
+            HMS->>DB: Create appointment record
+            HMS->>AUDIT: Log appointment booking
+            AUDIT->>DB: Save audit trail
+            HMS->>NOT: Send confirmation
+            NOT->>P: Appointment confirmation
+            NOT->>DR: New appointment notification
+            HMS-->>PORTAL: Booking successful
+            PORTAL-->>P: Appointment confirmed
+        else Payment Failed
+            PAY-->>HMS: Payment failed
+            HMS->>NOT: Send payment failure
+            NOT->>P: Payment failed notification
+            HMS-->>PORTAL: Booking failed
+            PORTAL-->>P: Payment failed - try again
+        end
+    else No Insurance Coverage
+        HMS->>PAY: Calculate full payment
+        PAY->>HMS: Return full amount
+        HMS->>PAY: Process full payment
+        PAY->>P: Request full payment
+        P->>PAY: Provide payment information
+        alt Payment Successful
+            PAY-->>HMS: Payment successful
+            HMS->>DB: Create appointment record
+            HMS->>AUDIT: Log appointment booking
+            AUDIT->>DB: Save audit trail
+            HMS->>NOT: Send confirmation
+            NOT->>P: Appointment confirmation
+            NOT->>DR: New appointment notification
+            HMS-->>PORTAL: Booking successful
+            PORTAL-->>P: Appointment confirmed
+        else Payment Failed
+            PAY-->>HMS: Payment failed
+            HMS->>NOT: Send payment failure
+            NOT->>P: Payment failed notification
+            HMS-->>PORTAL: Booking failed
+            PORTAL-->>P: Payment failed - try again
+        end
+    end
 ```
 
 ## Phone Booking System Flow
@@ -158,8 +202,11 @@ sequenceDiagram
     participant SCHED as Scheduling System
     participant DB as Database
     participant PAY as Payment System
+    participant REFUND as Refund System
     participant NOT as Notification Service
     participant DR as Doctor
+    participant POLICY as Cancellation Policy
+    participant AUDIT as Audit System
 
     P->>PORTAL: Request cancellation
     PORTAL->>HMS: Get appointment details
@@ -168,11 +215,26 @@ sequenceDiagram
     HMS-->>PORTAL: Display appointment details
     P->>PORTAL: Confirm cancellation
     PORTAL->>HMS: Process cancellation
+    HMS->>POLICY: Check cancellation policy
+    POLICY->>DB: Query cancellation rules
+    DB-->>POLICY: Return policy details
+    POLICY-->>HMS: Cancellation policy result
     HMS->>DB: Update appointment status
     HMS->>SCHED: Free up time slot
     SCHED->>DB: Update provider schedule
-    HMS->>PAY: Process refund if applicable
-    PAY->>P: Refund processed
+    HMS->>REFUND: Process refund if applicable
+    REFUND->>POLICY: Check refund eligibility
+    POLICY-->>REFUND: Refund eligibility
+    alt Refund Eligible
+        REFUND->>PAY: Process refund
+        PAY->>P: Refund processed
+        REFUND->>DB: Record refund transaction
+        REFUND-->>HMS: Refund completed
+    else No Refund
+        REFUND-->>HMS: No refund applicable
+    end
+    HMS->>AUDIT: Log cancellation activity
+    AUDIT->>DB: Save audit trail
     HMS->>NOT: Send cancellation notifications
     NOT->>P: Cancellation confirmation
     NOT->>DR: Appointment cancelled notification

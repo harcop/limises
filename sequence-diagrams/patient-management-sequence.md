@@ -9,11 +9,25 @@ sequenceDiagram
     participant HMS as HMS System
     participant DB as Database
     participant INS as Insurance System
+    participant PHOTO as Photo Capture
+    participant VERIFY as Identity Verification
     participant NOT as Notification Service
+    participant AUDIT as Audit System
 
     P->>R: Arrives at hospital
     R->>P: Requests personal information
     P->>R: Provides personal details
+    R->>VERIFY: Verify patient identity
+    VERIFY->>DB: Check for existing records
+    DB-->>VERIFY: Return duplicate check result
+    alt Duplicate Found
+        VERIFY-->>R: Duplicate patient alert
+        R->>P: Verify if existing patient
+        P->>R: Confirms/denies existing record
+    end
+    VERIFY-->>R: Identity verification complete
+    R->>PHOTO: Capture patient photo
+    PHOTO->>DB: Store patient photo
     R->>HMS: Create new patient record
     HMS->>DB: Validate patient data
     DB-->>HMS: Data validation result
@@ -26,9 +40,17 @@ sequenceDiagram
     R->>HMS: Add insurance information
     HMS->>INS: Verify insurance eligibility
     INS-->>HMS: Insurance verification result
-    HMS->>DB: Store insurance information
-    HMS->>NOT: Send welcome notification
-    NOT->>P: Welcome SMS/Email
+    alt Insurance Verification Failed
+        HMS->>NOT: Send insurance issue alert
+        NOT->>R: Insurance verification failed
+        R->>P: Insurance verification issues
+    else Insurance Verification Success
+        HMS->>DB: Store insurance information
+        HMS->>AUDIT: Log registration activity
+        AUDIT->>DB: Save audit trail
+        HMS->>NOT: Send welcome notification
+        NOT->>P: Welcome SMS/Email
+    end
     HMS-->>R: Patient registration complete
     R->>P: Issue patient card with ID
 ```
@@ -127,7 +149,11 @@ sequenceDiagram
     participant HMS as HMS System
     participant DB as Database
     participant AUTH as Authentication Service
+    participant MFA as Multi-Factor Auth
+    participant RBAC as Role-Based Access
+    participant AUDIT as Audit System
     participant NOT as Notification Service
+    participant ENCRYPT as Encryption Service
 
     P->>PORTAL: Access patient portal
     PORTAL->>AUTH: Request authentication
@@ -135,22 +161,66 @@ sequenceDiagram
     P->>AUTH: Provide credentials
     AUTH->>DB: Verify patient credentials
     DB-->>AUTH: Authentication result
-    AUTH-->>PORTAL: Authentication success
-    PORTAL->>HMS: Request patient data
-    HMS->>DB: Retrieve patient information
-    DB-->>HMS: Return patient data
-    HMS-->>PORTAL: Patient information
-    PORTAL-->>P: Display patient dashboard
-    P->>PORTAL: Request medical records
-    PORTAL->>HMS: Get medical history
-    HMS->>DB: Query medical records
-    DB-->>HMS: Return medical history
-    HMS-->>PORTAL: Medical records
-    PORTAL-->>P: Display medical records
-    P->>PORTAL: Book appointment
-    PORTAL->>HMS: Create appointment request
-    HMS->>NOT: Send appointment confirmation
-    NOT->>P: Appointment confirmation
+    alt Authentication Failed
+        AUTH->>AUDIT: Log failed login attempt
+        AUDIT->>DB: Save audit log
+        AUTH-->>PORTAL: Authentication failed
+        PORTAL-->>P: Login failed
+    else Authentication Success
+        AUTH->>MFA: Initiate multi-factor authentication
+        MFA->>P: Request second factor
+        P->>MFA: Provide second factor
+        MFA->>DB: Verify second factor
+        DB-->>MFA: MFA verification result
+        alt MFA Failed
+            MFA->>AUDIT: Log MFA failure
+            AUDIT->>DB: Save audit log
+            MFA-->>AUTH: MFA failed
+            AUTH-->>PORTAL: Authentication failed
+            PORTAL-->>P: MFA verification failed
+        else MFA Success
+            MFA-->>AUTH: MFA verified
+            AUTH->>RBAC: Check patient permissions
+            RBAC->>DB: Query patient roles
+            DB-->>RBAC: Return role permissions
+            RBAC-->>AUTH: Permission granted
+            AUTH->>AUDIT: Log successful login
+            AUDIT->>DB: Save audit log
+            AUTH->>ENCRYPT: Encrypt session data
+            ENCRYPT-->>AUTH: Session encrypted
+            AUTH-->>PORTAL: Authentication success
+            PORTAL->>HMS: Request patient data
+            HMS->>DB: Retrieve patient information
+            DB-->>HMS: Return patient data
+            HMS->>ENCRYPT: Encrypt patient data
+            ENCRYPT-->>HMS: Data encrypted
+            HMS-->>PORTAL: Encrypted patient information
+            PORTAL-->>P: Display patient dashboard
+            P->>PORTAL: Request medical records
+            PORTAL->>RBAC: Check record access
+            RBAC->>DB: Verify access permissions
+            DB-->>RBAC: Return access status
+            alt Access Denied
+                RBAC-->>PORTAL: Access denied
+                PORTAL-->>P: Access denied message
+            else Access Granted
+                RBAC-->>PORTAL: Access granted
+                PORTAL->>HMS: Get medical history
+                HMS->>DB: Query medical records
+                DB-->>HMS: Return medical history
+                HMS->>ENCRYPT: Encrypt medical data
+                ENCRYPT-->>HMS: Medical data encrypted
+                HMS-->>PORTAL: Encrypted medical records
+                PORTAL-->>P: Display medical records
+            end
+            P->>PORTAL: Book appointment
+            PORTAL->>HMS: Create appointment request
+            HMS->>AUDIT: Log appointment booking
+            AUDIT->>DB: Save audit log
+            HMS->>NOT: Send appointment confirmation
+            NOT->>P: Appointment confirmation
+        end
+    end
 ```
 
 ## Patient Transfer Flow

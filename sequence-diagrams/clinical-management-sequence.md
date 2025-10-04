@@ -11,10 +11,15 @@ sequenceDiagram
     participant TEMPLATE as Template Engine
     participant P as Patient
     participant NOT as Notification Service
+    participant AUDIT as Audit System
+    participant SIGNATURE as Digital Signature
+    participant VALIDATE as Validation Engine
 
     DR->>HMS: Access patient record
     HMS->>DB: Retrieve patient data
     DB-->>HMS: Return patient information
+    HMS->>AUDIT: Log record access
+    AUDIT->>DB: Save access log
     HMS-->>DR: Display patient record
     DR->>HMS: Start clinical note
     HMS->>TEMPLATE: Load specialty template
@@ -25,16 +30,37 @@ sequenceDiagram
     DR->>HMS: Enter review of systems
     DR->>HMS: Enter physical examination
     HMS->>CDSS: Check for clinical alerts
-    CDSS-->>HMS: Return clinical warnings
-    HMS-->>DR: Display clinical alerts
-    DR->>HMS: Review and acknowledge alerts
+    alt CDSS Available
+        CDSS-->>HMS: Return clinical warnings
+        HMS-->>DR: Display clinical alerts
+        DR->>HMS: Review and acknowledge alerts
+    else CDSS Unavailable
+        HMS->>NOT: Send CDSS failure alert
+        NOT->>DR: CDSS temporarily unavailable
+        HMS-->>DR: Continue without CDSS alerts
+    end
     DR->>HMS: Enter assessment and plan
-    HMS->>CDSS: Validate clinical documentation
-    CDSS-->>HMS: Documentation validation
+    HMS->>VALIDATE: Validate clinical documentation
+    VALIDATE->>VALIDATE: Check completeness
+    alt Validation Failed
+        VALIDATE-->>HMS: Validation errors
+        HMS-->>DR: Display validation errors
+        DR->>HMS: Correct documentation
+        HMS->>VALIDATE: Re-validate documentation
+        VALIDATE-->>HMS: Validation passed
+    else Validation Success
+        VALIDATE-->>HMS: Documentation validated
+    end
+    HMS->>SIGNATURE: Request digital signature
+    SIGNATURE->>DR: Request signature
+    DR->>SIGNATURE: Provide digital signature
+    SIGNATURE->>DB: Verify signature
+    DB-->>SIGNATURE: Signature verified
+    SIGNATURE-->>HMS: Signature captured
     HMS->>DB: Save clinical note
     HMS->>DB: Update patient medical history
-    HMS->>DB: Record digital signature
-    DB-->>HMS: Clinical note saved
+    HMS->>AUDIT: Log documentation activity
+    AUDIT->>DB: Save audit trail
     HMS->>NOT: Send patient notification
     NOT->>P: Clinical update notification
     HMS-->>DR: Documentation complete
@@ -52,10 +78,18 @@ sequenceDiagram
     participant PHARM as Pharmacy System
     participant P as Patient
     participant NOT as Notification Service
+    participant SIGNATURE as Electronic Signature
+    participant ROUTING as Prescription Routing
+    participant AUDIT as Audit System
+    participant RECONCILE as Medication Reconciliation
 
     DR->>HMS: Access prescription module
     HMS->>DB: Retrieve patient medications
     DB-->>HMS: Return current medications
+    HMS->>RECONCILE: Perform medication reconciliation
+    RECONCILE->>DB: Check medication history
+    DB-->>RECONCILE: Return medication data
+    RECONCILE-->>HMS: Reconciliation results
     HMS-->>DR: Display medication history
     DR->>HMS: Select medication to prescribe
     HMS->>DRUG: Get drug information
@@ -63,18 +97,33 @@ sequenceDiagram
     HMS->>CDSS: Check drug interactions
     CDSS->>DB: Query patient allergies
     DB-->>CDSS: Return allergy information
+    CDSS->>CDSS: Check multiple drug databases
     CDSS-->>HMS: Interaction and allergy alerts
     HMS-->>DR: Display safety alerts
     DR->>HMS: Review and acknowledge alerts
     DR->>HMS: Enter dosage and instructions
     HMS->>CDSS: Validate prescription
     CDSS-->>HMS: Prescription validation
+    HMS->>SIGNATURE: Request electronic signature
+    SIGNATURE->>DR: Request digital signature
+    DR->>SIGNATURE: Provide electronic signature
+    SIGNATURE->>DB: Verify signature
+    DB-->>SIGNATURE: Signature verified
+    SIGNATURE-->>HMS: Signature captured
     HMS->>DB: Save prescription
-    HMS->>PHARM: Send prescription to pharmacy
+    HMS->>AUDIT: Log prescription activity
+    AUDIT->>DB: Save audit trail
+    HMS->>ROUTING: Route prescription
+    ROUTING->>P: Request pharmacy preference
+    P->>ROUTING: Select pharmacy
+    ROUTING->>PHARM: Send prescription to selected pharmacy
     PHARM->>DB: Update prescription status
     HMS->>NOT: Send prescription notification
     NOT->>P: Prescription ready notification
+    NOT->>PHARM: New prescription notification
     HMS->>DB: Update medication history
+    HMS->>RECONCILE: Update medication reconciliation
+    RECONCILE->>DB: Save reconciliation data
     HMS-->>DR: Prescription created
 ```
 

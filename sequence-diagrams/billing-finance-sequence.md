@@ -46,29 +46,57 @@ sequenceDiagram
     participant CLAIMS as Claims Processing
     participant PAYMENT as Payment System
     participant NOT as Notification Service
+    participant APPEAL as Claims Appeal System
+    participant RCM as Revenue Cycle Management
+    participant AUDIT as Audit System
+    participant MULTI_PAYER as Multi-Payer System
 
     HMS->>BILLING: Service completed
     BILLING->>DB: Retrieve service charges
     DB-->>BILLING: Return charge data
-    BILLING->>INSURANCE: Verify insurance eligibility
-    INSURANCE-->>BILLING: Return eligibility status
+    BILLING->>MULTI_PAYER: Check multiple payers
+    MULTI_PAYER->>INSURANCE: Verify insurance eligibility
+    INSURANCE-->>MULTI_PAYER: Return eligibility status
+    MULTI_PAYER-->>BILLING: Return payer information
     BILLING->>CLAIMS: Create insurance claim
     CLAIMS->>DB: Save claim data
+    CLAIMS->>AUDIT: Log claim creation
+    AUDIT->>DB: Save audit trail
     CLAIMS->>INSURANCE: Submit claim electronically
     INSURANCE->>CLAIMS: Process claim
     INSURANCE-->>CLAIMS: Return claim status
     alt Claim Approved
         CLAIMS->>PAYMENT: Process insurance payment
         PAYMENT->>DB: Record payment
+        CLAIMS->>RCM: Update revenue cycle
+        RCM->>DB: Update RCM metrics
         CLAIMS->>NOT: Send approval notification
         NOT->>BILLING: Claim approved
     else Claim Denied
         CLAIMS->>NOT: Send denial notification
         NOT->>BILLING: Claim denied
-        BILLING->>CLAIMS: Initiate appeal process
-        CLAIMS->>INSURANCE: Submit appeal
+        BILLING->>APPEAL: Initiate appeal process
+        APPEAL->>DB: Create appeal record
+        APPEAL->>INSURANCE: Submit appeal
+        INSURANCE->>APPEAL: Process appeal
+        INSURANCE-->>APPEAL: Return appeal result
+        alt Appeal Approved
+            APPEAL->>PAYMENT: Process payment
+            PAYMENT->>DB: Record payment
+            APPEAL->>RCM: Update revenue cycle
+            RCM->>DB: Update RCM metrics
+            APPEAL->>NOT: Send appeal approval
+            NOT->>BILLING: Appeal approved
+        else Appeal Denied
+            APPEAL->>NOT: Send appeal denial
+            NOT->>BILLING: Appeal denied
+            BILLING->>APPEAL: Consider second appeal
+            APPEAL->>DB: Record second appeal
+        end
     end
     CLAIMS->>DB: Update claim status
+    CLAIMS->>RCM: Update revenue cycle metrics
+    RCM->>DB: Save RCM data
     CLAIMS-->>BILLING: Claims processing complete
 ```
 
@@ -81,9 +109,13 @@ sequenceDiagram
     participant HMS as HMS System
     participant PAYMENT as Payment System
     participant DB as Database
-    participant BANK as Bank System
+    participant GATEWAY as Payment Gateway
+    participant FRAUD as Fraud Detection
+    participant PCI as PCI Compliance
     participant RECEIPT as Receipt System
     participant NOT as Notification Service
+    participant AUDIT as Audit System
+    participant RECONCILE as Payment Reconciliation
 
     P->>STAFF: Makes payment
     STAFF->>HMS: Access payment processing
@@ -93,20 +125,45 @@ sequenceDiagram
     STAFF->>PAYMENT: Process payment
     PAYMENT->>P: Request payment method
     P->>PAYMENT: Select payment method
-    PAYMENT->>BANK: Process payment transaction
-    BANK-->>PAYMENT: Return transaction result
-    alt Payment Successful
-        PAYMENT->>DB: Record payment
-        PAYMENT->>RECEIPT: Generate receipt
-        RECEIPT->>DB: Save receipt data
-        RECEIPT-->>PAYMENT: Receipt generated
-        PAYMENT->>NOT: Send payment confirmation
-        NOT->>P: Payment confirmation
-        PAYMENT-->>STAFF: Payment successful
-    else Payment Failed
-        PAYMENT->>NOT: Send failure notification
-        NOT->>P: Payment failure notice
-        PAYMENT-->>STAFF: Payment failed
+    PAYMENT->>PCI: Ensure PCI compliance
+    PCI->>PCI: Encrypt payment data
+    PCI-->>PAYMENT: Payment data secured
+    PAYMENT->>FRAUD: Check for fraud
+    FRAUD->>DB: Query fraud patterns
+    DB-->>FRAUD: Return fraud data
+    FRAUD->>FRAUD: Analyze payment risk
+    alt Fraud Detected
+        FRAUD->>AUDIT: Log fraud attempt
+        AUDIT->>DB: Save fraud log
+        FRAUD-->>PAYMENT: Payment blocked
+        PAYMENT->>NOT: Send fraud alert
+        NOT->>STAFF: Fraud detected
+        PAYMENT-->>STAFF: Payment blocked
+    else No Fraud Detected
+        FRAUD-->>PAYMENT: Payment approved
+        PAYMENT->>GATEWAY: Process payment transaction
+        GATEWAY->>GATEWAY: Multiple gateway support
+        Note over GATEWAY: - Stripe<br/>- PayPal<br/>- Square<br/>- Healthcare processors
+        GATEWAY-->>PAYMENT: Return transaction result
+        alt Payment Successful
+            PAYMENT->>DB: Record payment
+            PAYMENT->>RECEIPT: Generate receipt
+            RECEIPT->>DB: Save receipt data
+            RECEIPT-->>PAYMENT: Receipt generated
+            PAYMENT->>RECONCILE: Initiate reconciliation
+            RECONCILE->>DB: Save reconciliation data
+            PAYMENT->>AUDIT: Log successful payment
+            AUDIT->>DB: Save payment audit
+            PAYMENT->>NOT: Send payment confirmation
+            NOT->>P: Payment confirmation
+            PAYMENT-->>STAFF: Payment successful
+        else Payment Failed
+            PAYMENT->>AUDIT: Log payment failure
+            AUDIT->>DB: Save failure audit
+            PAYMENT->>NOT: Send failure notification
+            NOT->>P: Payment failure notice
+            PAYMENT-->>STAFF: Payment failed
+        end
     end
     PAYMENT->>DB: Update payment status
 ```
