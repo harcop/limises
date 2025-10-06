@@ -22,7 +22,6 @@ The Hospital Management System (HMS) is an integrated, cloud-native platform des
 ### 1. **Patient Management & Registration Module**
 - Comprehensive patient registration and demographics management
 - Electronic Medical Records (EMR/EHR) with clinical decision support
-- Patient portal with self-service capabilities
 - Medical history tracking and allergy management
 - Insurance verification and eligibility checking
 - Patient communication and engagement tools

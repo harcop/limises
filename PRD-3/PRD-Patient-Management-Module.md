@@ -167,50 +167,7 @@ The Patient Management & Registration Module is the foundational component of th
 - Rescheduling options
 - Waitlist management
 
-### 5. Patient Portal & Self-Service
-
-#### Patient Portal Features
-**Account Management:**
-- Secure login with MFA
-- Profile management
-- Password and security settings
-- Communication preferences
-- Privacy settings
-
-**Medical Records Access:**
-- View complete medical history
-- Download test reports
-- Access imaging reports
-- View prescription history
-- Print medical summaries
-- Share records with providers
-- Request record corrections
-
-**Appointment Management:**
-- Book new appointments
-- View upcoming appointments
-- Cancel/reschedule appointments
-- Join virtual consultations
-- Receive appointment reminders
-- Check-in online
-
-**Communication:**
-- Secure messaging with providers
-- Receive test results
-- Get medication reminders
-- Access educational materials
-- Submit feedback and complaints
-- Request prescription refills
-
-**Billing & Payments:**
-- View billing statements
-- Make online payments
-- Download receipts
-- Check insurance claims status
-- Set up payment plans
-- View payment history
-
-### 6. Consent Management
+### 5. Consent Management
 
 #### Digital Consent Forms
 **Treatment Consents:**
@@ -249,7 +206,7 @@ The Patient Management & Registration Module is the foundational component of th
 - Consent withdrawal process
 - Audit trail maintenance
 
-### 7. Patient Transfer & Referral Management
+### 6. Patient Transfer & Referral Management
 
 #### Internal Transfers
 - Transfer between departments
@@ -269,7 +226,7 @@ The Patient Management & Registration Module is the foundational component of th
 - Insurance authorization
 - Appointment coordination
 
-### 8. Patient Communication & Engagement
+### 7. Patient Communication & Engagement
 
 #### Automated Notifications
 - Appointment reminders (24/48 hours before)
@@ -291,7 +248,7 @@ The Patient Management & Registration Module is the foundational component of th
 - Emergency notifications
 - Survey and feedback requests
 
-### 9. Privacy & Security
+### 8. Privacy & Security
 
 #### Data Protection
 - Role-based access control
@@ -313,7 +270,7 @@ The Patient Management & Registration Module is the foundational component of th
 - Data retention policies
 - Breach notification procedures
 
-### 10. Advanced Features
+### 9. Advanced Features
 
 #### Patient Risk Stratification
 - Risk scoring algorithms
