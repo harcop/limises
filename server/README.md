@@ -1,6 +1,6 @@
 # Hospital Management System - Backend Server
 
-A comprehensive Node.js Express server with TypeScript and SQLite database for the Hospital Management System, built based on user stories and end-to-end integration scenarios.
+A comprehensive Node.js Express server with TypeScript and MongoDB database for the Hospital Management System, built based on user stories and end-to-end integration scenarios.
 
 ## Features
 
@@ -26,11 +26,11 @@ A comprehensive Node.js Express server with TypeScript and SQLite database for t
 - Comprehensive audit logging
 
 ### Database Features
-- SQLite database with comprehensive schema
-- Foreign key constraints and data integrity
+- MongoDB NoSQL database with comprehensive schema
+- Document-based data modeling with Mongoose ODM
 - Optimized indexes for performance
-- Transaction support for data consistency
-- Automated migrations and seeding
+- Aggregation pipelines for complex queries
+- Automated seeding and data validation
 
 ## Installation
 
@@ -50,13 +50,19 @@ A comprehensive Node.js Express server with TypeScript and SQLite database for t
    # Edit .env with your configuration
    ```
 
-4. **Initialize the database**
+4. **Set up MongoDB**
+   ```bash
+   # Install MongoDB locally or use MongoDB Atlas
+   # For local installation: https://docs.mongodb.com/manual/installation/
+   ```
+
+5. **Initialize the database**
    ```bash
    npm run migrate
    npm run seed
    ```
 
-5. **Start the server**
+6. **Start the server**
    ```bash
    # Development (with TypeScript compilation)
    npm run dev
@@ -76,7 +82,8 @@ PORT=3001
 NODE_ENV=development
 
 # Database Configuration
-DATABASE_PATH=./database/emr_system.db
+MONGODB_URI=mongodb://localhost:27017/emr_system
+MONGODB_DATABASE=emr_system
 
 # JWT Configuration
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production

@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 const moment = require('moment');
 import { authenticate, authorize } from '../middleware/auth';
 import { validateAppointment, validateId, validatePagination, validateDateRange } from '../middleware/validation';
-import { runQuery, getRow, getAll } from '../database/connection';
+import { AppointmentModel, PatientModel, StaffModel } from '../models';
 const { 
   generateAppointmentId, 
   formatDate, 
@@ -44,10 +44,10 @@ router.post('/', authenticate, authorize('receptionist', 'admin', 'doctor', 'nur
     }
 
     // Check if patient exists
-    const patient = await getRow(
-      'SELECT patient_id, first_name, last_name FROM patients WHERE patient_id = ? AND status = "active"',
-      [patientId]
-    );
+    const patient = await PatientModel.findOne({ 
+      patientId, 
+      status: 'active' 
+    }).select('patientId firstName lastName');
 
     if (!patient) {
       return res.status(404).json({
@@ -57,10 +57,10 @@ router.post('/', authenticate, authorize('receptionist', 'admin', 'doctor', 'nur
     }
 
     // Check if staff exists and is active
-    const staff = await getRow(
-      'SELECT staff_id, first_name, last_name, department, position FROM staff WHERE staff_id = ? AND status = "active"',
-      [staffId]
-    );
+    const staff = await StaffModel.findOne({ 
+      staffId, 
+      status: 'active' 
+    }).select('staffId firstName lastName department position');
 
     if (!staff) {
       return res.status(404).json({
@@ -69,23 +69,20 @@ router.post('/', authenticate, authorize('receptionist', 'admin', 'doctor', 'nur
       });
     }
 
-    // Check for time conflicts
-    const conflictingAppointment = await getRow(
-      `SELECT appointment_id, start_time, end_time 
-       FROM appointments 
-       WHERE staff_id = ? AND appointment_date = ? AND status IN ('scheduled', 'confirmed') 
-       AND ((start_time < ? AND end_time > ?) OR (start_time < ? AND end_time > ?))`,
-      [staffId, formatDate(appointmentDate), endTime, startTime, startTime, endTime]
-    );
+    // Check for time conflicts (simplified for now)
+    const conflictingAppointment = await AppointmentModel.findOne({
+      staffId,
+      appointmentDate: new Date(appointmentDate),
+      status: { $in: ['scheduled', 'confirmed'] }
+    });
 
     if (conflictingAppointment) {
       return res.status(400).json({
         success: false,
         error: 'Time conflict with existing appointment',
         conflict: {
-          appointmentId: conflictingAppointment.appointment_id,
-          startTime: conflictingAppointment.start_time,
-          endTime: conflictingAppointment.end_time
+          appointmentId: conflictingAppointment.appointmentId,
+          appointmentTime: conflictingAppointment.appointmentTime
         }
       });
     }
@@ -101,24 +98,20 @@ router.post('/', authenticate, authorize('receptionist', 'admin', 'doctor', 'nur
     // Generate appointment ID
     const appointmentId = generateAppointmentId();
 
-    await runQuery(
-      `INSERT INTO appointments (
-        appointment_id, patient_id, staff_id, appointment_date, start_time, end_time,
-        appointment_type, status, reason_for_visit, notes, room_number, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, CURRENT_TIMESTAMP)`,
-      [
-        appointmentId,
-        patientId,
-        staffId,
-        formatDate(appointmentDate),
-        formatTime(startTime),
-        formatTime(endTime),
-        appointmentType,
-        reasonForVisit,
-        notes,
-        roomNumber
-      ]
-    );
+    const newAppointment = new AppointmentModel({
+      appointmentId,
+      patientId,
+      staffId,
+      appointmentDate: new Date(appointmentDate),
+      appointmentTime: startTime,
+      appointmentType,
+      status: 'scheduled',
+      duration: calculateAppointmentDuration(startTime, endTime),
+      notes: reasonForVisit || notes,
+      roomNumber
+    });
+
+    await newAppointment.save();
 
     logger.info(`Appointment created: ${appointmentId} for patient ${patientId} with staff ${staffId}`);
 
@@ -135,12 +128,12 @@ router.post('/', authenticate, authorize('receptionist', 'admin', 'doctor', 'nur
         appointmentType,
         status: 'scheduled',
         patient: {
-          firstName: patient.first_name,
-          lastName: patient.last_name
+          firstName: patient.firstName,
+          lastName: patient.lastName
         },
         staff: {
-          firstName: staff.first_name,
-          lastName: staff.last_name,
+          firstName: staff.firstName,
+          lastName: staff.lastName,
           department: staff.department,
           position: staff.position
         }

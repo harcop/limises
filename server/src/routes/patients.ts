@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
 import { validatePatient, validatePatientUpdate, validatePatientId, validatePagination, validateInsurance } from '../middleware/validation';
-import { runQuery, getRow, getAll } from '../database/connection';
+import { PatientModel, BillingAccountModel } from '../models';
 import { 
   generatePatientId, 
   generateBillingAccountId, 
@@ -42,10 +42,12 @@ router.post('/', authenticate, authorize('receptionist', 'admin', 'doctor', 'nur
     } = req.body;
 
     // Check for duplicate patient
-    const duplicateCheck = await getRow(
-      'SELECT patient_id FROM patients WHERE (phone = ? AND phone IS NOT NULL AND phone != "") OR (email = ? AND email IS NOT NULL AND email != "")',
-      [sanitizeString(phone), sanitizeString(email)]
-    );
+    const duplicateCheck = await PatientModel.findOne({
+      $or: [
+        { phone: sanitizeString(phone), phone: { $ne: null, $ne: "" } },
+        { email: sanitizeString(email), email: { $ne: null, $ne: "" } }
+      ]
+    });
 
     if (duplicateCheck) {
       return res.status(400).json({
@@ -58,52 +60,46 @@ router.post('/', authenticate, authorize('receptionist', 'admin', 'doctor', 'nur
     // Generate patient ID
     const patientId = generatePatientId();
 
-    // Start transaction
-    await runQuery('BEGIN TRANSACTION');
-
     try {
       // Create patient record
-      await runQuery(
-        `INSERT INTO patients (
-          patient_id, first_name, last_name, middle_name, date_of_birth, gender,
-          phone, email, address, city, state, zip_code, country,
-          emergency_contact_name, emergency_contact_phone, emergency_contact_relationship,
-          blood_type, allergies, medical_conditions, status, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)`,
-        [
-          patientId,
-          sanitizeString(firstName),
-          sanitizeString(lastName),
-          sanitizeString(middleName),
-          formatDate(dateOfBirth),
-          gender,
-          sanitizeString(phone),
-          sanitizeString(email),
-          sanitizeString(address),
-          sanitizeString(city),
-          sanitizeString(state),
-          sanitizeString(zipCode),
-          sanitizeString(country || 'USA'),
-          sanitizeString(emergencyContactName),
-          sanitizeString(emergencyContactPhone),
-          sanitizeString(emergencyContactRelationship),
-          sanitizeString(bloodType),
-          sanitizeString(allergies),
-          sanitizeString(medicalConditions)
-        ]
-      );
+      const newPatient = new PatientModel({
+        patientId,
+        firstName: sanitizeString(firstName),
+        lastName: sanitizeString(lastName),
+        middleName: sanitizeString(middleName),
+        dateOfBirth: new Date(dateOfBirth),
+        gender,
+        phone: sanitizeString(phone),
+        email: sanitizeString(email),
+        address: sanitizeString(address),
+        city: sanitizeString(city),
+        state: sanitizeString(state),
+        zipCode: sanitizeString(zipCode),
+        country: sanitizeString(country || 'USA'),
+        emergencyContactName: sanitizeString(emergencyContactName),
+        emergencyContactPhone: sanitizeString(emergencyContactPhone),
+        emergencyContactRelationship: sanitizeString(emergencyContactRelationship),
+        bloodType: sanitizeString(bloodType),
+        allergies: sanitizeString(allergies),
+        medicalConditions: sanitizeString(medicalConditions),
+        status: 'active'
+      });
+
+      await newPatient.save();
 
       // Create billing account
       const accountId = generateBillingAccountId();
       const accountNumber = generateBillingAccountNumber();
       
-      await runQuery(
-        `INSERT INTO billing_accounts (account_id, patient_id, account_number, status, created_at) 
-         VALUES (?, ?, ?, 'active', CURRENT_TIMESTAMP)`,
-        [accountId, patientId, accountNumber]
-      );
+      const newBillingAccount = new BillingAccountModel({
+        accountId,
+        patientId,
+        accountNumber,
+        balance: 0,
+        status: 'active'
+      });
 
-      await runQuery('COMMIT');
+      await newBillingAccount.save();
 
       logger.info(`New patient registered: ${patientId} by user ${req.user.userId}`);
 
@@ -120,7 +116,6 @@ router.post('/', authenticate, authorize('receptionist', 'admin', 'doctor', 'nur
       });
 
     } catch (error) {
-      await runQuery('ROLLBACK');
       throw error;
     }
 
@@ -140,52 +135,51 @@ router.get('/', authenticate, authorize('receptionist', 'admin', 'doctor', 'nurs
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
+    const skip = (page - 1) * limit;
     const search = req.query.search || '';
     const status = req.query.status || 'active';
 
-    let whereClause = 'WHERE p.status = ?';
-    let params = [status];
+    // Build query
+    let query: any = { status };
 
     if (search) {
-      whereClause += ` AND (
-        p.first_name LIKE ? OR 
-        p.last_name LIKE ? OR 
-        p.patient_id LIKE ? OR 
-        p.phone LIKE ? OR 
-        p.email LIKE ?
-      )`;
-      const searchPattern = `%${search}%`;
-      params.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+      query.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { patientId: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
     }
 
     // Get total count
-    const countResult = await getRow(
-      `SELECT COUNT(*) as total FROM patients p ${whereClause}`,
-      params
-    );
-    const total = countResult.total;
+    const total = await PatientModel.countDocuments(query);
 
-    // Get patients
-    const patients = await getAll(
-      `SELECT 
-        p.patient_id, p.first_name, p.last_name, p.middle_name, p.date_of_birth, p.gender,
-        p.phone, p.email, p.address, p.city, p.state, p.zip_code, p.country,
-        p.emergency_contact_name, p.emergency_contact_phone, p.emergency_contact_relationship,
-        p.blood_type, p.allergies, p.medical_conditions, p.status, p.created_at,
-        ba.account_id, ba.account_number, ba.balance
-       FROM patients p
-       LEFT JOIN billing_accounts ba ON p.patient_id = ba.patient_id
-       ${whereClause}
-       ORDER BY p.last_name, p.first_name
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
-    );
+    // Get patients with billing account info
+    const patients = await PatientModel.aggregate([
+      { $match: query },
+      {
+        $lookup: {
+          from: 'billing_accounts',
+          localField: 'patientId',
+          foreignField: 'patientId',
+          as: 'billingAccount'
+        }
+      },
+      {
+        $addFields: {
+          billingAccount: { $arrayElemAt: ['$billingAccount', 0] }
+        }
+      },
+      { $sort: { lastName: 1, firstName: 1 } },
+      { $skip: skip },
+      { $limit: limit }
+    ]);
 
     // Calculate age for each patient
     const patientsWithAge = patients.map(patient => ({
       ...patient,
-      age: calculateAge(patient.date_of_birth)
+      age: calculateAge(patient.dateOfBirth)
     }));
 
     res.json({

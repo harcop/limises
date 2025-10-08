@@ -1,43 +1,18 @@
-import fs from 'fs';
-import path from 'path';
-import { initializeDatabase, runQuery, closeDatabase } from './connection';
+import { initializeDatabase, closeDatabase } from './connection';
 import { logger } from '../utils/logger';
+
+// Import all models to ensure they are registered
+import '../models';
 
 async function runMigrations(): Promise<void> {
   try {
-    logger.info('Starting database migration...');
+    logger.info('Starting MongoDB migration...');
     
     // Initialize database connection
     await initializeDatabase();
     
-    // Read schema file
-    const schemaPath = path.join(__dirname, 'schema.sql');
-    const schema = fs.readFileSync(schemaPath, 'utf8');
-    
-    // Split schema into individual statements
-    const statements = schema
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
-    
-    logger.info(`Found ${statements.length} SQL statements to execute`);
-    
-    // Execute each statement
-    for (let i = 0; i < statements.length; i++) {
-      const statement = statements[i];
-      if (statement.trim()) {
-        try {
-          await runQuery(statement);
-          logger.info(`Executed statement ${i + 1}/${statements.length}`);
-        } catch (error) {
-          logger.error(`Error executing statement ${i + 1}:`, error);
-          logger.error(`Statement: ${statement}`);
-          throw error;
-        }
-      }
-    }
-    
-    logger.info('Database migration completed successfully');
+    logger.info('MongoDB migration completed successfully');
+    logger.info('All collections will be created automatically when first document is inserted');
     
   } catch (error) {
     logger.error('Migration failed:', error);

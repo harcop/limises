@@ -484,8 +484,12 @@ export interface DatabaseRow {
 }
 
 export interface DatabaseResult {
-  id: number;
-  changes: number;
+  acknowledged: boolean;
+  insertedId?: string;
+  modifiedCount?: number;
+  upsertedCount?: number;
+  matchedCount?: number;
+  deletedCount?: number;
 }
 
 // Validation Types

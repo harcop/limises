@@ -1,128 +1,83 @@
-import sqlite3 from 'sqlite3';
-import path from 'path';
-import fs from 'fs';
+import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
-import { DatabaseRow, DatabaseResult } from '../types';
 
-const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '../../database/emr_system.db');
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/emr_system';
+const MONGODB_DATABASE = process.env.MONGODB_DATABASE || 'emr_system';
 
-// Ensure database directory exists
-const dbDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-
-let db: sqlite3.Database | null = null;
+// MongoDB connection options
+const options = {
+  maxPoolSize: 10, // Maintain up to 10 socket connections
+  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  bufferMaxEntries: 0, // Disable mongoose buffering
+  bufferCommands: false, // Disable mongoose buffering
+};
 
 // Initialize database connection
-export function initializeDatabase(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    db = new sqlite3.Database(DB_PATH, (err) => {
-      if (err) {
-        logger.error('Error opening database:', err);
-        reject(err);
-      } else {
-        logger.info('Connected to SQLite database');
-        
-        // Enable foreign keys
-        db!.run('PRAGMA foreign_keys = ON', (err) => {
-          if (err) {
-            logger.error('Error enabling foreign keys:', err);
-            reject(err);
-          } else {
-            logger.info('Foreign keys enabled');
-            resolve();
-          }
-        });
-      }
+export async function initializeDatabase(): Promise<void> {
+  try {
+    await mongoose.connect(MONGODB_URI, options);
+    logger.info(`Connected to MongoDB database: ${MONGODB_DATABASE}`);
+    
+    // Handle connection events
+    mongoose.connection.on('error', (error) => {
+      logger.error('MongoDB connection error:', error);
     });
-  });
+
+    mongoose.connection.on('disconnected', () => {
+      logger.warn('MongoDB disconnected');
+    });
+
+    mongoose.connection.on('reconnected', () => {
+      logger.info('MongoDB reconnected');
+    });
+
+    // Graceful shutdown
+    process.on('SIGINT', async () => {
+      await closeDatabase();
+      process.exit(0);
+    });
+
+  } catch (error) {
+    logger.error('Failed to connect to MongoDB:', error);
+    throw error;
+  }
 }
 
 // Get database instance
-export function getDatabase(): sqlite3.Database {
-  if (!db) {
+export function getDatabase(): mongoose.Connection {
+  if (!mongoose.connection.readyState) {
     throw new Error('Database not initialized. Call initializeDatabase() first.');
   }
-  return db;
-}
-
-// Execute a query with parameters
-export function runQuery(sql: string, params: any[] = []): Promise<DatabaseResult> {
-  return new Promise((resolve, reject) => {
-    const database = getDatabase();
-    database.run(sql, params, function(err) {
-      if (err) {
-        logger.error('Database query error:', err);
-        reject(err);
-      } else {
-        resolve({ id: this.lastID, changes: this.changes });
-      }
-    });
-  });
-}
-
-// Get a single row
-export function getRow(sql: string, params: any[] = []): Promise<DatabaseRow | undefined> {
-  return new Promise((resolve, reject) => {
-    const database = getDatabase();
-    database.get(sql, params, (err, row) => {
-      if (err) {
-        logger.error('Database query error:', err);
-        reject(err);
-      } else {
-        resolve(row);
-      }
-    });
-  });
-}
-
-// Get all rows
-export function getAll(sql: string, params: any[] = []): Promise<DatabaseRow[]> {
-  return new Promise((resolve, reject) => {
-    const database = getDatabase();
-    database.all(sql, params, (err, rows) => {
-      if (err) {
-        logger.error('Database query error:', err);
-        reject(err);
-      } else {
-        resolve(rows || []);
-      }
-    });
-  });
-}
-
-// Begin transaction
-export function beginTransaction(): Promise<DatabaseResult> {
-  return runQuery('BEGIN TRANSACTION');
-}
-
-// Commit transaction
-export function commitTransaction(): Promise<DatabaseResult> {
-  return runQuery('COMMIT');
-}
-
-// Rollback transaction
-export function rollbackTransaction(): Promise<DatabaseResult> {
-  return runQuery('ROLLBACK');
+  return mongoose.connection;
 }
 
 // Close database connection
-export function closeDatabase(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (db) {
-      db.close((err) => {
-        if (err) {
-          logger.error('Error closing database:', err);
-          reject(err);
-        } else {
-          logger.info('Database connection closed');
-          db = null;
-          resolve();
-        }
-      });
-    } else {
-      resolve();
-    }
-  });
+export async function closeDatabase(): Promise<void> {
+  try {
+    await mongoose.connection.close();
+    logger.info('MongoDB connection closed');
+  } catch (error) {
+    logger.error('Error closing MongoDB connection:', error);
+    throw error;
+  }
 }
+
+// Helper function to check if database is connected
+export function isConnected(): boolean {
+  return mongoose.connection.readyState === 1;
+}
+
+// Helper function to get connection state
+export function getConnectionState(): string {
+  const states = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  return states[mongoose.connection.readyState as keyof typeof states] || 'unknown';
+}
+
+// Export mongoose for use in models
+export { mongoose };

@@ -4,6 +4,10 @@
 
 This document provides a high-level overview of the database schema architecture for the Hospital Management System, showing the main modules and their interconnections.
 
+**Database Technology**: MongoDB (NoSQL Document Database)
+**ORM/ODM**: Mongoose
+**Connection**: MongoDB Atlas or Local MongoDB Instance
+
 ## Database Schema Architecture
 
 ```mermaid
