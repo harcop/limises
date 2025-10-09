@@ -44,14 +44,6 @@ export async function initializeDatabase(): Promise<void> {
   }
 }
 
-// Get database instance
-export function getDatabase(): mongoose.Connection {
-  if (!mongoose.connection.readyState) {
-    throw new Error('Database not initialized. Call initializeDatabase() first.');
-  }
-  return mongoose.connection;
-}
-
 // Close database connection
 export async function closeDatabase(): Promise<void> {
   try {
@@ -63,24 +55,3 @@ export async function closeDatabase(): Promise<void> {
   }
 }
 
-// Helper function to check if database is connected
-export function isConnected(): boolean {
-  return mongoose.connection.readyState === 1;
-}
-
-// Helper function to get connection state
-export function getConnectionState(): string {
-  const states = {
-    0: 'disconnected',
-    1: 'connected',
-    2: 'connecting',
-    3: 'disconnecting'
-  };
-  return states[mongoose.connection.readyState as keyof typeof states] || 'unknown';
-}
-
-// Export mongoose for use in models
-export { mongoose };
-
-// Export utility functions for backward compatibility
-export { runQuery, getRow, getAll, isConnected, getConnectionState } from './utils';
