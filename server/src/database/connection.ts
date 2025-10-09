@@ -81,3 +81,6 @@ export function getConnectionState(): string {
 
 // Export mongoose for use in models
 export { mongoose };
+
+// Export utility functions for backward compatibility
+export { runQuery, getRow, getAll, isConnected, getConnectionState } from './utils';

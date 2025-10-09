@@ -1,16 +1,14 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
-import { validateId, validatePagination, validateDateRange } from '../middleware/validation';
+import { validateId, validatePagination } from '../middleware/validation';
 import { runQuery, getRow, getAll } from '../database/connection';
 import { 
   generateId,
-  formatDate, 
-  formatTime,
-  sanitizeString,
-  formatDateTime
+  formatDate,
+  sanitizeString
 } from '../utils/helpers';
 import { logger } from '../utils/logger';
-import { AuthRequest, ApiResponse } from '../types';
+import { AuthRequest } from '../types';
 
 const router = express.Router();
 

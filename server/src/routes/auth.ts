@@ -2,10 +2,10 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
 import { generateToken } from '../middleware/auth';
-import { runQuery, getRow, getAll } from '../database/connection';
+import { runQuery, getRow } from '../database/connection';
 import { generateId, generateStaffId, generatePatientId, sanitizeString } from '../utils/helpers';
 import { logger } from '../utils/logger';
-import { AuthRequest, ApiResponse, User, Staff, Patient } from '../types';
+import { AuthRequest } from '../types';
 
 const router = express.Router();
 

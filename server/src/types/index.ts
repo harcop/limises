@@ -38,6 +38,17 @@ export interface StaffAuthRequest extends Request {
   };
 }
 
+// Generic AuthRequest for backward compatibility
+export interface AuthRequest extends Request {
+  user?: {
+    staffId: string;
+    username: string;
+    email: string;
+    roles: string[];
+    permissions: string[];
+  };
+}
+
 
 // ==============================================
 // STAFF MANAGEMENT TYPES

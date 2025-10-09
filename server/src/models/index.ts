@@ -1,29 +1,26 @@
-// Export all models
-export { PatientModel } from './Patient';
-export { StaffModel } from './Staff';
-export { StaffAuthModel } from './StaffAuth';
-export { AppointmentModel } from './Appointment';
-export { ClinicalNoteModel } from './ClinicalNote';
-export { PrescriptionModel } from './Prescription';
-export { DrugMasterModel } from './DrugMaster';
-export { BillingAccountModel } from './BillingAccount';
+// Re-export all models from their respective modules
+// This maintains backward compatibility while using the new modular structure
 
-// Export inventory models
-export { InventoryItemModel } from './InventoryItem';
-export { InventoryTransactionModel } from './InventoryTransaction';
-export { PurchaseOrderModel } from './PurchaseOrder';
+// Patients Module
+export { PatientModel } from '../modules/patients/models';
+export type { IPatient } from '../modules/patients/models';
 
-// Export model interfaces
-export type { IPatient } from './Patient';
-export type { IStaff } from './Staff';
-export type { IStaffAuth } from './StaffAuth';
-export type { IAppointment } from './Appointment';
-export type { IClinicalNote } from './ClinicalNote';
-export type { IPrescription } from './Prescription';
-export type { IDrugMaster } from './DrugMaster';
-export type { IBillingAccount } from './BillingAccount';
+// Staff Module
+export { StaffModel, StaffAuthModel } from '../modules/staff/models';
+export type { IStaff, IStaffAuth } from '../modules/staff/models';
 
-// Export inventory model interfaces
-export type { IInventoryItem } from './InventoryItem';
-export type { IInventoryTransaction } from './InventoryTransaction';
-export type { IPurchaseOrder, IPurchaseOrderItem } from './PurchaseOrder';
+// Appointments Module
+export { AppointmentModel } from '../modules/appointments/models';
+export type { IAppointment } from '../modules/appointments/models';
+
+// Clinical Module
+export { ClinicalNoteModel, PrescriptionModel, DrugMasterModel } from '../modules/clinical/models';
+export type { IClinicalNote, IPrescription, IDrugMaster } from '../modules/clinical/models';
+
+// Billing Module
+export { BillingAccountModel } from '../modules/billing/models';
+export type { IBillingAccount } from '../modules/billing/models';
+
+// Inventory Module
+export { InventoryItemModel, InventoryTransactionModel, PurchaseOrderModel } from '../modules/inventory/models';
+export type { IInventoryItem, IInventoryTransaction, IPurchaseOrder, IPurchaseOrderItem } from '../modules/inventory/models';
