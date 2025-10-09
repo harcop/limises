@@ -1,67 +1,96 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
-import { validateId, validatePagination } from '../middleware/validation';
-import { runQuery, getRow, getAll } from '../database/connection';
-const { 
+import { validateId, validatePagination, validateDateRange } from '../middleware/validation';
+import {
+  InventoryItemModel,
+  InventoryTransactionModel,
+  PurchaseOrderModel
+} from '../models';
+import {
   generateId,
-  formatDate 
-} = require('../utils/helpers');
+  sanitizeString
+} from '../utils/helpers';
 import { logger } from '../utils/logger';
 import { AuthRequest, ApiResponse } from '../types';
 
 const router = express.Router();
 
+// ==============================================
+// INVENTORY ITEMS MANAGEMENT
+// ==============================================
+
 // @route   POST /api/inventory/items
 // @desc    Create a new inventory item
-// @access  Private (Admin, Inventory Manager only)
-router.post('/items', authenticate, authorize('admin', 'inventory_manager'), [
-  require('express-validator').body('itemName').trim().isLength({ min: 1, max: 200 }).withMessage('Item name is required'),
-  require('express-validator').body('itemCategory').trim().isLength({ min: 1, max: 100 }).withMessage('Item category is required'),
-  require('express-validator').body('itemType').optional().trim().isLength({ max: 100 }).withMessage('Item type must be less than 100 characters'),
-  require('express-validator').body('unitOfMeasure').optional().trim().isLength({ max: 50 }).withMessage('Unit of measure must be less than 50 characters'),
-], async (req: AuthRequest, res: Response): Promise<void> => {
+// @access  Private (Admin, Manager, Inventory Staff)
+router.post('/items', authenticate, authorize('admin', 'manager', 'inventory'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const errors = require('express-validator').validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: errors.array()
-      });
-    }
-
     const {
       itemName,
-      itemCategory,
-      itemType,
+      itemCode,
+      category,
+      subcategory,
+      description,
+      brand,
+      model,
       unitOfMeasure,
-      description
+      size,
+      color,
+      minimumStock,
+      maximumStock,
+      reorderPoint,
+      reorderQuantity,
+      unitCost,
+      sellingPrice,
+      batchTracking,
+      expirationTracking,
+      serialNumberTracking,
+      primaryLocation,
+      secondaryLocations,
+      isControlled,
+      primarySupplier,
+      alternativeSuppliers,
+      fdaApprovalNumber,
+      ndcNumber
     } = req.body;
 
-    // Check if item already exists
-    const existingItem = await getRow(
-      'SELECT item_id FROM inventory_items WHERE item_name = ?',
-      [itemName]
-    );
-
-    if (existingItem) {
-      return res.status(400).json({
-        success: false,
-        error: 'Item with this name already exists'
-      });
-    }
-
-    // Generate item ID
     const itemId = generateId('ITEM', 6);
 
-    await runQuery(
-      `INSERT INTO inventory_items (
-        item_id, item_name, item_category, item_type, unit_of_measure, description, is_active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
-      [itemId, itemName, itemCategory, itemType, unitOfMeasure, description]
-    );
+    const newItem = new InventoryItemModel({
+      itemId,
+      itemName: sanitizeString(itemName),
+      itemCode: sanitizeString(itemCode),
+      category,
+      subcategory: sanitizeString(subcategory),
+      description: sanitizeString(description),
+      brand: sanitizeString(brand),
+      model: sanitizeString(model),
+      unitOfMeasure: sanitizeString(unitOfMeasure),
+      size: sanitizeString(size),
+      color: sanitizeString(color),
+      currentStock: 0,
+      minimumStock: minimumStock || 0,
+      maximumStock: maximumStock || 1000,
+      reorderPoint: reorderPoint || 10,
+      reorderQuantity: reorderQuantity || 50,
+      unitCost: unitCost || 0,
+      sellingPrice,
+      batchTracking: batchTracking || false,
+      expirationTracking: expirationTracking || false,
+      serialNumberTracking: serialNumberTracking || false,
+      primaryLocation: sanitizeString(primaryLocation),
+      secondaryLocations: secondaryLocations || [],
+      status: 'active',
+      isControlled: isControlled || false,
+      primarySupplier: sanitizeString(primarySupplier),
+      alternativeSuppliers: alternativeSuppliers || [],
+      fdaApprovalNumber: sanitizeString(fdaApprovalNumber),
+      ndcNumber: sanitizeString(ndcNumber),
+      createdBy: req.user.staffId
+    });
 
-    logger.info(`Inventory item created: ${itemId} - ${itemName} by user ${req.user.userId}`);
+    await newItem.save();
+
+    logger.info(`Inventory item created: ${itemId} by staff ${req.user.staffId}`);
 
     res.status(201).json({
       success: true,
@@ -69,10 +98,11 @@ router.post('/items', authenticate, authorize('admin', 'inventory_manager'), [
       item: {
         itemId,
         itemName,
-        itemCategory,
-        itemType,
-        unitOfMeasure,
-        isActive: true
+        itemCode,
+        category,
+        currentStock: 0,
+        status: 'active',
+        createdAt: newItem.createdAt.toISOString()
       }
     });
 
@@ -86,69 +116,42 @@ router.post('/items', authenticate, authorize('admin', 'inventory_manager'), [
 });
 
 // @route   GET /api/inventory/items
-// @desc    Get inventory items with filters
-// @access  Private (Staff only)
-router.get('/items', authenticate, authorize('receptionist', 'nurse', 'admin', 'inventory_manager'), validatePagination, async (req: AuthRequest, res: Response): Promise<void> => {
+// @desc    Get inventory items with filtering and pagination
+// @access  Private (All Staff)
+router.get('/items', authenticate, validatePagination, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-    const {
-      itemCategory,
-      itemType,
-      isActive,
-      search
-    } = req.query;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+    const { category, subcategory, status, location, lowStock, search } = req.query;
 
-    let whereClause = 'WHERE 1=1';
-    let params = [];
+    const filter: any = {};
 
-    if (itemCategory) {
-      whereClause += ' AND item_category = ?';
-      params.push(itemCategory);
-    }
-
-    if (itemType) {
-      whereClause += ' AND item_type = ?';
-      params.push(itemType);
-    }
-
-    if (isActive !== undefined) {
-      whereClause += ' AND is_active = ?';
-      params.push(isActive === 'true' ? 1 : 0);
-    }
-
+    if (category) filter.category = category;
+    if (subcategory) filter.subcategory = subcategory;
+    if (status) filter.status = status;
+    if (location) filter.primaryLocation = location;
+    if (lowStock === 'true') filter.currentStock = { $lte: '$reorderPoint' };
     if (search) {
-      whereClause += ' AND (item_name LIKE ? OR description LIKE ?)';
-      const searchPattern = `%${search}%`;
-      params.push(searchPattern, searchPattern);
+      filter.$or = [
+        { itemName: { $regex: search, $options: 'i' } },
+        { itemCode: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
     }
 
-    // Get total count
-    const countResult = await getRow(
-      `SELECT COUNT(*) as total FROM inventory_items ${whereClause}`,
-      params
-    );
-    const total = countResult.total;
-
-    // Get inventory items
-    const items = await getAll(
-      `SELECT * FROM inventory_items 
-       ${whereClause}
-       ORDER BY item_name
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
-    );
+    const total = await InventoryItemModel.countDocuments(filter);
+    const items = await InventoryItemModel.find(filter)
+      .select('itemId itemName itemCode category subcategory currentStock minimumStock maximumStock reorderPoint unitCost primaryLocation status isLowStock isOverstock')
+      .sort({ itemName: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
     res.json({
       success: true,
       items,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
     });
 
   } catch (error) {
@@ -161,22 +164,20 @@ router.get('/items', authenticate, authorize('receptionist', 'nurse', 'admin', '
 });
 
 // @route   GET /api/inventory/items/:itemId
-// @desc    Get inventory item by ID
-// @access  Private (Staff only)
-router.get('/items/:itemId', authenticate, authorize('receptionist', 'nurse', 'admin', 'inventory_manager'), validateId, async (req: AuthRequest, res: Response): Promise<void> => {
+// @desc    Get a specific inventory item
+// @access  Private (All Staff)
+router.get('/items/:itemId', authenticate, validateId, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { itemId } = req.params;
 
-    const item = await getRow(
-      'SELECT * FROM inventory_items WHERE item_id = ?',
-      [itemId]
-    );
+    const item = await InventoryItemModel.findOne({ itemId }).lean();
 
     if (!item) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Inventory item not found'
       });
+      return;
     }
 
     res.json({
@@ -193,351 +194,462 @@ router.get('/items/:itemId', authenticate, authorize('receptionist', 'nurse', 'a
   }
 });
 
-// @route   POST /api/inventory/stock
-// @desc    Add inventory stock
-// @access  Private (Admin, Inventory Manager only)
-router.post('/stock', authenticate, authorize('admin', 'inventory_manager'), [
-  require('express-validator').body('itemId').trim().isLength({ min: 1 }).withMessage('Item ID is required'),
-  require('express-validator').body('batchNumber').optional().trim().isLength({ max: 100 }).withMessage('Batch number must be less than 100 characters'),
-  require('express-validator').body('expiryDate').optional().isISO8601().withMessage('Valid expiry date is required'),
-  require('express-validator').body('quantityInStock').isInt({ min: 0 }).withMessage('Quantity must be a non-negative integer'),
-  require('express-validator').body('unitCost').isDecimal().withMessage('Valid unit cost is required'),
-], async (req: AuthRequest, res: Response): Promise<void> => {
+// @route   PUT /api/inventory/items/:itemId
+// @desc    Update an inventory item
+// @access  Private (Admin, Manager, Inventory Staff)
+router.put('/items/:itemId', authenticate, authorize('admin', 'manager', 'inventory'), validateId, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const errors = require('express-validator').validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
+    const { itemId } = req.params;
+    const updateData = req.body;
+
+    // Remove fields that shouldn't be updated directly
+    delete updateData.itemId;
+    delete updateData.currentStock;
+    delete updateData.createdBy;
+    delete updateData.createdAt;
+
+    // Sanitize string fields
+    if (updateData.itemName) updateData.itemName = sanitizeString(updateData.itemName);
+    if (updateData.itemCode) updateData.itemCode = sanitizeString(updateData.itemCode);
+    if (updateData.description) updateData.description = sanitizeString(updateData.description);
+    if (updateData.brand) updateData.brand = sanitizeString(updateData.brand);
+    if (updateData.model) updateData.model = sanitizeString(updateData.model);
+    if (updateData.primaryLocation) updateData.primaryLocation = sanitizeString(updateData.primaryLocation);
+
+    updateData.updatedBy = req.user.staffId;
+
+    const updatedItem = await InventoryItemModel.findOneAndUpdate(
+      { itemId },
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).lean();
+
+    if (!updatedItem) {
+      res.status(404).json({
         success: false,
-        error: 'Validation failed',
-        details: errors.array()
+        error: 'Inventory item not found'
       });
+      return;
     }
 
+    logger.info(`Inventory item updated: ${itemId} by staff ${req.user.staffId}`);
+
+    res.json({
+      success: true,
+      message: 'Inventory item updated successfully',
+      item: updatedItem
+    });
+
+  } catch (error) {
+    logger.error('Update inventory item error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error updating inventory item'
+    });
+  }
+});
+
+// ==============================================
+// INVENTORY TRANSACTIONS
+// ==============================================
+
+// @route   POST /api/inventory/transactions
+// @desc    Create a new inventory transaction
+// @access  Private (All Staff)
+router.post('/transactions', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
     const {
       itemId,
-      batchNumber,
-      expiryDate,
-      quantityInStock,
-      reorderLevel,
+      transactionType,
+      quantity,
       unitCost,
-      supplier,
-      location
+      fromLocation,
+      toLocation,
+      referenceNumber,
+      referenceType,
+      batchNumber,
+      lotNumber,
+      serialNumber,
+      expirationDate,
+      reason,
+      notes
     } = req.body;
 
-    // Check if item exists
-    const item = await getRow(
-      'SELECT item_id, item_name FROM inventory_items WHERE item_id = ? AND is_active = 1',
-      [itemId]
-    );
+    const transactionId = generateId('TXN', 6);
 
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        error: 'Inventory item not found or inactive'
-      });
+    const newTransaction = new InventoryTransactionModel({
+      transactionId,
+      itemId,
+      transactionType,
+      quantity,
+      unitCost,
+      fromLocation: sanitizeString(fromLocation),
+      toLocation: sanitizeString(toLocation),
+      referenceNumber: sanitizeString(referenceNumber),
+      referenceType,
+      batchNumber: sanitizeString(batchNumber),
+      lotNumber: sanitizeString(lotNumber),
+      serialNumber: sanitizeString(serialNumber),
+      expirationDate: expirationDate ? new Date(expirationDate) : undefined,
+      reason: sanitizeString(reason),
+      notes: sanitizeString(notes),
+      status: 'pending',
+      createdBy: req.user.staffId
+    });
+
+    await newTransaction.save();
+
+    // Update item stock if transaction is completed
+    if (transactionType === 'receipt' || transactionType === 'issue' || transactionType === 'adjustment') {
+      const item = await InventoryItemModel.findOne({ itemId });
+      if (item) {
+        let newStock = item.currentStock;
+        if (transactionType === 'receipt' || transactionType === 'adjustment') {
+          newStock += Math.abs(quantity);
+        } else if (transactionType === 'issue') {
+          newStock -= Math.abs(quantity);
+        }
+        
+        if (newStock < 0) {
+          res.status(400).json({
+            success: false,
+            error: 'Insufficient stock for this transaction'
+          });
+          return;
+        }
+
+        await InventoryItemModel.findOneAndUpdate(
+          { itemId },
+          { $set: { currentStock: newStock } }
+        );
+      }
     }
 
-    // Generate stock ID
-    const stockId = generateId('STOCK', 6);
-
-    await runQuery(
-      `INSERT INTO inventory_stock (
-        stock_id, item_id, batch_number, expiry_date, quantity_in_stock, reorder_level,
-        unit_cost, supplier, location, status, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', CURRENT_TIMESTAMP)`,
-      [
-        stockId,
-        itemId,
-        batchNumber,
-        expiryDate ? formatDate(expiryDate) : null,
-        quantityInStock,
-        reorderLevel || 10,
-        unitCost,
-        supplier,
-        location
-      ]
-    );
-
-    logger.info(`Inventory stock added: ${stockId} for item ${itemId} by user ${req.user.userId}`);
+    logger.info(`Inventory transaction created: ${transactionId} by staff ${req.user.staffId}`);
 
     res.status(201).json({
       success: true,
-      message: 'Inventory stock added successfully',
-      stock: {
-        stockId,
+      message: 'Inventory transaction created successfully',
+      transaction: {
+        transactionId,
         itemId,
-        itemName: item.item_name,
-        batchNumber,
-        quantityInStock,
-        unitCost
+        transactionType,
+        quantity,
+        status: 'pending',
+        createdAt: newTransaction.createdAt.toISOString()
       }
     });
 
   } catch (error) {
-    logger.error('Add inventory stock error:', error);
+    logger.error('Create inventory transaction error:', error);
     res.status(500).json({
       success: false,
-      error: 'Server error adding inventory stock'
+      error: 'Server error creating inventory transaction'
     });
   }
 });
 
-// @route   GET /api/inventory/stock
-// @desc    Get inventory stock with filters
-// @access  Private (Staff only)
-router.get('/stock', authenticate, authorize('receptionist', 'nurse', 'admin', 'inventory_manager'), validatePagination, async (req: AuthRequest, res: Response): Promise<void> => {
+// @route   GET /api/inventory/transactions
+// @desc    Get inventory transactions with filtering
+// @access  Private (All Staff)
+router.get('/transactions', authenticate, validatePagination, validateDateRange, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+    const { itemId, transactionType, status, startDate, endDate } = req.query;
+
+    const filter: any = {};
+
+    if (itemId) filter.itemId = itemId;
+    if (transactionType) filter.transactionType = transactionType;
+    if (status) filter.status = status;
+    if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate as string),
+        $lte: new Date(endDate as string)
+      };
+    }
+
+    const total = await InventoryTransactionModel.countDocuments(filter);
+    const transactions = await InventoryTransactionModel.find(filter)
+      .populate('itemId', 'itemName itemCode')
+      .select('transactionId itemId transactionType quantity unitCost totalCost fromLocation toLocation referenceNumber status createdAt')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.json({
+      success: true,
+      transactions,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
+
+  } catch (error) {
+    logger.error('Get inventory transactions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error retrieving inventory transactions'
+    });
+  }
+});
+
+// ==============================================
+// PURCHASE ORDERS
+// ==============================================
+
+// @route   POST /api/inventory/purchase-orders
+// @desc    Create a new purchase order
+// @access  Private (Admin, Manager, Procurement)
+router.post('/purchase-orders', authenticate, authorize('admin', 'manager', 'procurement'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
     const {
-      itemId,
-      status,
-      lowStock,
-      location,
-      supplier
-    } = req.query;
+      supplierId,
+      supplierName,
+      expectedDeliveryDate,
+      items,
+      taxAmount,
+      shippingCost,
+      notes,
+      internalNotes
+    } = req.body;
 
-    let whereClause = 'WHERE 1=1';
-    let params = [];
+    const purchaseOrderId = generateId('PO', 6);
+    const orderNumber = `PO-${Date.now()}`;
 
-    if (itemId) {
-      whereClause += ' AND ist.item_id = ?';
-      params.push(itemId);
-    }
+    const newPurchaseOrder = new PurchaseOrderModel({
+      purchaseOrderId,
+      orderNumber,
+      supplierId,
+      supplierName: sanitizeString(supplierName),
+      orderDate: new Date(),
+      expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
+      items: items || [],
+      subtotal: 0,
+      taxAmount: taxAmount || 0,
+      shippingCost: shippingCost || 0,
+      totalAmount: 0,
+      status: 'draft',
+      notes: sanitizeString(notes),
+      internalNotes: sanitizeString(internalNotes),
+      createdBy: req.user.staffId
+    });
 
-    if (status) {
-      whereClause += ' AND ist.status = ?';
-      params.push(status);
-    }
+    await newPurchaseOrder.save();
 
-    if (location) {
-      whereClause += ' AND ist.location = ?';
-      params.push(location);
-    }
+    logger.info(`Purchase order created: ${purchaseOrderId} by staff ${req.user.staffId}`);
 
-    if (supplier) {
-      whereClause += ' AND ist.supplier = ?';
-      params.push(supplier);
-    }
-
-    if (lowStock === 'true') {
-      whereClause += ' AND ist.quantity_in_stock <= ist.reorder_level';
-    }
-
-    // Get total count
-    const countResult = await getRow(
-      `SELECT COUNT(*) as total 
-       FROM inventory_stock ist
-       LEFT JOIN inventory_items ii ON ist.item_id = ii.item_id
-       ${whereClause}`,
-      params
-    );
-    const total = countResult.total;
-
-    // Get inventory stock
-    const stock = await getAll(
-      `SELECT 
-        ist.*, ii.item_name, ii.item_category, ii.item_type, ii.unit_of_measure
-       FROM inventory_stock ist
-       LEFT JOIN inventory_items ii ON ist.item_id = ii.item_id
-       ${whereClause}
-       ORDER BY ii.item_name, ist.expiry_date
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
-    );
-
-    res.json({
+    res.status(201).json({
       success: true,
-      stock,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
+      message: 'Purchase order created successfully',
+      purchaseOrder: {
+        purchaseOrderId,
+        orderNumber,
+        supplierName,
+        status: 'draft',
+        totalAmount: newPurchaseOrder.totalAmount,
+        createdAt: newPurchaseOrder.createdAt.toISOString()
       }
     });
 
   } catch (error) {
-    logger.error('Get inventory stock error:', error);
+    logger.error('Create purchase order error:', error);
     res.status(500).json({
       success: false,
-      error: 'Server error retrieving inventory stock'
+      error: 'Server error creating purchase order'
     });
   }
 });
 
-// @route   PUT /api/inventory/stock/:stockId
-// @desc    Update inventory stock
-// @access  Private (Admin, Inventory Manager only)
-router.put('/stock/:stockId', authenticate, authorize('admin', 'inventory_manager'), validateId, async (req: AuthRequest, res: Response): Promise<void> => {
+// @route   GET /api/inventory/purchase-orders
+// @desc    Get purchase orders with filtering
+// @access  Private (Admin, Manager, Procurement)
+router.get('/purchase-orders', authenticate, authorize('admin', 'manager', 'procurement'), validatePagination, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { stockId } = req.params;
-    const updates = req.body;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+    const { status, supplierId, startDate, endDate } = req.query;
 
-    // Check if stock item exists
-    const existingStock = await getRow(
-      'SELECT * FROM inventory_stock WHERE stock_id = ?',
-      [stockId]
-    );
+    const filter: any = {};
 
-    if (!existingStock) {
-      return res.status(404).json({
-        success: false,
-        error: 'Inventory stock item not found'
-      });
+    if (status) filter.status = status;
+    if (supplierId) filter.supplierId = supplierId;
+    if (startDate && endDate) {
+      filter.orderDate = {
+        $gte: new Date(startDate as string),
+        $lte: new Date(endDate as string)
+      };
     }
 
-    // Build update query dynamically
-    const updateFields = [];
-    const updateValues = [];
+    const total = await PurchaseOrderModel.countDocuments(filter);
+    const purchaseOrders = await PurchaseOrderModel.find(filter)
+      .select('purchaseOrderId orderNumber supplierName orderDate expectedDeliveryDate totalAmount status items')
+      .sort({ orderDate: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
-    const allowedFields = [
-      'quantityInStock', 'reorderLevel', 'unitCost', 'supplier', 'location', 'status'
-    ];
+    res.json({
+      success: true,
+      purchaseOrders,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
 
-    for (const [key, value] of Object.entries(updates)) {
-      if (allowedFields.includes(key) && value !== undefined) {
-        const dbField = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        updateFields.push(`${dbField} = ?`);
-        updateValues.push(value);
-      }
+  } catch (error) {
+    logger.error('Get purchase orders error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error retrieving purchase orders'
+    });
+  }
+});
+
+// ==============================================
+// INVENTORY REPORTS AND ANALYTICS
+// ==============================================
+
+// @route   GET /api/inventory/reports/low-stock
+// @desc    Get low stock items
+// @access  Private (All Staff)
+router.get('/reports/low-stock', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const lowStockItems = await InventoryItemModel.find({
+      $expr: { $lte: ['$currentStock', '$reorderPoint'] },
+      status: 'active'
+    })
+    .select('itemId itemName itemCode currentStock reorderPoint primaryLocation category')
+    .sort({ currentStock: 1 })
+    .lean();
+
+    res.json({
+      success: true,
+      lowStockItems,
+      count: lowStockItems.length
+    });
+
+  } catch (error) {
+    logger.error('Get low stock items error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error retrieving low stock items'
+    });
+  }
+});
+
+// @route   GET /api/inventory/reports/expiring
+// @desc    Get items nearing expiration
+// @access  Private (All Staff)
+router.get('/reports/expiring', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const daysAhead = parseInt(req.query.days as string) || 30;
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + daysAhead);
+
+    const expiringItems = await InventoryItemModel.find({
+      expirationDate: { $lte: futureDate },
+      expirationTracking: true,
+      status: 'active'
+    })
+    .select('itemId itemName itemCode expirationDate currentStock primaryLocation')
+    .sort({ expirationDate: 1 })
+    .lean();
+
+    res.json({
+      success: true,
+      expiringItems,
+      count: expiringItems.length,
+      daysAhead
+    });
+
+  } catch (error) {
+    logger.error('Get expiring items error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error retrieving expiring items'
+    });
+  }
+});
+
+// @route   GET /api/inventory/reports/usage
+// @desc    Get item usage analytics
+// @access  Private (Admin, Manager, Inventory Staff)
+router.get('/reports/usage', authenticate, authorize('admin', 'manager', 'inventory'), validateDateRange, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { startDate, endDate, itemId } = req.query;
+
+    const matchFilter: any = {};
+    if (startDate && endDate) {
+      matchFilter.createdAt = {
+        $gte: new Date(startDate as string),
+        $lte: new Date(endDate as string)
+      };
     }
+    if (itemId) matchFilter.itemId = itemId;
 
-    if (updateFields.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No valid fields to update'
-      });
-    }
-
-    updateFields.push('updated_at = CURRENT_TIMESTAMP');
-    updateValues.push(stockId);
-
-    await runQuery(
-      `UPDATE inventory_stock SET ${updateFields.join(', ')} WHERE stock_id = ?`,
-      updateValues
-    );
-
-    logger.info(`Inventory stock updated: ${stockId} by user ${req.user.userId}`);
-
-    res.json({
-      success: true,
-      message: 'Inventory stock updated successfully'
-    });
-
-  } catch (error) {
-    logger.error('Update inventory stock error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error updating inventory stock'
-    });
-  }
-});
-
-// @route   GET /api/inventory/categories
-// @desc    Get all inventory categories
-// @access  Private (Staff only)
-router.get('/categories', authenticate, authorize('receptionist', 'nurse', 'admin', 'inventory_manager'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const categories = await getAll(
-      'SELECT DISTINCT item_category FROM inventory_items WHERE item_category IS NOT NULL AND item_category != "" ORDER BY item_category'
-    );
-
-    res.json({
-      success: true,
-      categories: categories.map(cat => cat.item_category)
-    });
-
-  } catch (error) {
-    logger.error('Get inventory categories error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error retrieving inventory categories'
-    });
-  }
-});
-
-// @route   GET /api/inventory/types
-// @desc    Get all inventory types
-// @access  Private (Staff only)
-router.get('/types', authenticate, authorize('receptionist', 'nurse', 'admin', 'inventory_manager'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const types = await getAll(
-      'SELECT DISTINCT item_type FROM inventory_items WHERE item_type IS NOT NULL AND item_type != "" ORDER BY item_type'
-    );
+    const usageStats = await InventoryTransactionModel.aggregate([
+      { $match: matchFilter },
+      {
+        $group: {
+          _id: '$itemId',
+          totalIssued: {
+            $sum: {
+              $cond: [
+                { $eq: ['$transactionType', 'issue'] },
+                { $abs: '$quantity' },
+                0
+              ]
+            }
+          },
+          totalReceived: {
+            $sum: {
+              $cond: [
+                { $eq: ['$transactionType', 'receipt'] },
+                '$quantity',
+                0
+              ]
+            }
+          },
+          totalCost: { $sum: '$totalCost' },
+          transactionCount: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'inventory_items',
+          localField: '_id',
+          foreignField: 'itemId',
+          as: 'item'
+        }
+      },
+      { $unwind: '$item' },
+      {
+        $project: {
+          itemId: '$_id',
+          itemName: '$item.itemName',
+          itemCode: '$item.itemCode',
+          category: '$item.category',
+          totalIssued: 1,
+          totalReceived: 1,
+          totalCost: 1,
+          transactionCount: 1
+        }
+      },
+      { $sort: { totalIssued: -1 } }
+    ]);
 
     res.json({
       success: true,
-      types: types.map(type => type.item_type)
+      usageStats,
+      period: { startDate, endDate }
     });
 
   } catch (error) {
-    logger.error('Get inventory types error:', error);
+    logger.error('Get usage analytics error:', error);
     res.status(500).json({
       success: false,
-      error: 'Server error retrieving inventory types'
-    });
-  }
-});
-
-// @route   GET /api/inventory/stats
-// @desc    Get inventory statistics
-// @access  Private (Admin, Manager only)
-router.get('/stats', authenticate, authorize('admin', 'manager'), async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    // Get item statistics
-    const itemStats = await getRow(
-      `SELECT 
-        COUNT(*) as total_items,
-        COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_items,
-        COUNT(CASE WHEN is_active = 0 THEN 1 END) as inactive_items,
-        COUNT(DISTINCT item_category) as total_categories,
-        COUNT(DISTINCT item_type) as total_types
-       FROM inventory_items`
-    );
-
-    // Get stock statistics
-    const stockStats = await getRow(
-      `SELECT 
-        COUNT(*) as total_stock_items,
-        COUNT(CASE WHEN status = 'available' THEN 1 END) as available_items,
-        COUNT(CASE WHEN status = 'low_stock' THEN 1 END) as low_stock_items,
-        COUNT(CASE WHEN status = 'out_of_stock' THEN 1 END) as out_of_stock_items,
-        COUNT(CASE WHEN status = 'expired' THEN 1 END) as expired_items,
-        SUM(quantity_in_stock * unit_cost) as total_inventory_value
-       FROM inventory_stock`
-    );
-
-    // Get category statistics
-    const categoryStats = await getAll(
-      `SELECT 
-        ii.item_category,
-        COUNT(*) as total_items,
-        COUNT(ist.stock_id) as stock_items,
-        SUM(ist.quantity_in_stock) as total_quantity,
-        SUM(ist.quantity_in_stock * ist.unit_cost) as category_value
-       FROM inventory_items ii
-       LEFT JOIN inventory_stock ist ON ii.item_id = ist.item_id
-       WHERE ii.item_category IS NOT NULL AND ii.item_category != ""
-       GROUP BY ii.item_category
-       ORDER BY category_value DESC`
-    );
-
-    res.json({
-      success: true,
-      stats: {
-        items: itemStats,
-        stock: stockStats,
-        byCategory: categoryStats
-      }
-    });
-
-  } catch (error) {
-    logger.error('Get inventory stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error retrieving inventory statistics'
+      error: 'Server error retrieving usage analytics'
     });
   }
 });

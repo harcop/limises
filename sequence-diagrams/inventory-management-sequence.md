@@ -1,419 +1,358 @@
-# Inventory Management Module - End-to-End Sequence Diagram
+# Inventory Management System - Sequence Diagrams
 
-## Stock Receipt Flow
-
-```mermaid
-sequenceDiagram
-    participant SUPPLIER as Supplier
-    participant RECEIVING as Receiving Staff
-    participant HMS as HMS System
-    participant INVENTORY as Inventory System
-    participant DB as Database
-    participant QC as Quality Control
-    participant PO as Purchase Order System
-    participant NOT as Notification Service
-
-    SUPPLIER->>RECEIVING: Deliver goods
-    RECEIVING->>HMS: Access receiving system
-    HMS->>PO: Get purchase order details
-    PO->>DB: Query purchase order
-    DB-->>PO: Return PO information
-    PO-->>HMS: Display PO details
-    HMS-->>RECEIVING: Show expected items
-    RECEIVING->>INVENTORY: Process goods receipt
-    INVENTORY->>QC: Inspect received items
-    QC->>DB: Record quality check
-    QC-->>INVENTORY: Quality assessment
-    alt Quality Approved
-        INVENTORY->>DB: Update stock levels
-        INVENTORY->>DB: Record batch information
-        INVENTORY->>NOT: Send receipt notification
-        NOT->>RECEIVING: Receipt successful
-    else Quality Rejected
-        INVENTORY->>DB: Record quality issues
-        INVENTORY->>NOT: Send rejection notification
-        NOT->>SUPPLIER: Quality rejection notice
-    end
-    INVENTORY->>PO: Update PO status
-    INVENTORY-->>RECEIVING: Receipt processing complete
-```
-
-## Stock Issue Flow
+## 1. Add New Inventory Item Workflow
 
 ```mermaid
 sequenceDiagram
-    participant USER as Department User
-    participant STAFF as Inventory Staff
-    participant HMS as HMS System
-    participant INVENTORY as Inventory System
+    participant Staff as Inventory Staff
+    participant Frontend as Frontend
+    participant API as Inventory API
+    participant Auth as Auth Service
     participant DB as Database
-    participant LOCATION as Location System
-    participant FEFO as FEFO System
-    participant NOT as Notification Service
+    participant Barcode as Barcode Service
+    participant Audit as Audit Service
 
-    USER->>STAFF: Request items
-    STAFF->>HMS: Access inventory system
-    HMS->>INVENTORY: Process issue request
-    INVENTORY->>DB: Check stock availability
-    DB-->>INVENTORY: Return stock status
-    INVENTORY-->>HMS: Display stock levels
-    HMS-->>STAFF: Show available items
-    STAFF->>INVENTORY: Confirm issue request
-    INVENTORY->>FEFO: Select batch (FEFO)
-    FEFO->>DB: Query batch information
-    DB-->>FEFO: Return batch data
-    FEFO-->>INVENTORY: Return selected batch
-    INVENTORY->>LOCATION: Update location stock
-    LOCATION->>DB: Update location inventory
-    INVENTORY->>DB: Record stock issue
-    INVENTORY->>NOT: Send issue notification
-    NOT->>USER: Items issued notification
-    INVENTORY-->>STAFF: Stock issue complete
+    Staff->>Frontend: Add new inventory item
+    Frontend->>API: POST /api/inventory/items
+    
+    API->>Auth: Verify authentication & permissions
+    Auth-->>API: User authenticated & authorized
+    
+    API->>DB: Validate item doesn't exist
+    DB-->>API: Item validated
+    
+    API->>Barcode: Generate barcode/QR code
+    Barcode-->>API: Barcode generated
+    
+    API->>DB: Create inventory item
+    DB-->>API: Item created with ID
+    
+    API->>Audit: Log item creation
+    Audit-->>API: Audit logged
+    
+    API-->>Frontend: Item created successfully
+    Frontend-->>Staff: Item creation confirmed
+    
+    Note over Staff, Audit: New inventory item added with barcode
 ```
 
-## Stock Transfer Flow
+## 2. Stock Receiving Workflow
 
 ```mermaid
 sequenceDiagram
-    participant STAFF1 as Source Staff
-    participant STAFF2 as Destination Staff
-    participant HMS as HMS System
-    participant INVENTORY as Inventory System
+    participant Staff as Receiving Staff
+    participant Frontend as Frontend
+    participant API as Inventory API
     participant DB as Database
-    participant TRANSFER as Transfer System
-    participant LOCATION as Location System
-    participant NOT as Notification Service
+    participant Alert as Alert Service
+    participant Audit as Audit Service
 
-    STAFF1->>HMS: Initiate stock transfer
-    HMS->>INVENTORY: Access transfer system
-    INVENTORY->>DB: Check source stock
-    DB-->>INVENTORY: Return source inventory
-    INVENTORY-->>HMS: Display available stock
-    HMS-->>STAFF1: Show transfer options
-    STAFF1->>INVENTORY: Select items for transfer
-    INVENTORY->>TRANSFER: Create transfer record
-    TRANSFER->>DB: Save transfer data
-    TRANSFER->>NOT: Send transfer notification
-    NOT->>STAFF2: Transfer notification
-    STAFF2->>HMS: Acknowledge transfer
-    HMS->>TRANSFER: Process transfer
-    TRANSFER->>LOCATION: Update source location
-    LOCATION->>DB: Reduce source stock
-    TRANSFER->>LOCATION: Update destination location
-    LOCATION->>DB: Increase destination stock
-    TRANSFER->>DB: Complete transfer record
-    TRANSFER->>NOT: Send completion notification
-    NOT->>STAFF1: Transfer completed
-    TRANSFER-->>STAFF2: Transfer received
+    Staff->>Frontend: Process incoming shipment
+    Frontend->>API: POST /api/inventory/receiving
+    
+    API->>DB: Validate purchase order
+    DB-->>API: PO validated
+    
+    API->>DB: Update stock levels
+    DB-->>API: Stock updated
+    
+    API->>Alert: Check for low stock alerts
+    Alert-->>API: Alert status returned
+    
+    API->>Audit: Log receiving transaction
+    Audit-->>API: Transaction logged
+    
+    API-->>Frontend: Receiving completed
+    Frontend-->>Staff: Receiving confirmation
+    
+    Note over Staff, Audit: Stock received and levels updated
 ```
 
-## Requisition Management Flow
+## 3. Item Issue Workflow
 
 ```mermaid
 sequenceDiagram
-    participant USER as Department User
-    participant MANAGER as Department Manager
-    participant HMS as HMS System
-    participant INVENTORY as Inventory System
+    participant Staff as Clinical Staff
+    participant Frontend as Frontend
+    participant API as Inventory API
     participant DB as Database
-    participant APPROVAL as Approval System
-    participant PO as Purchase Order System
-    participant NOT as Notification Service
+    participant Alert as Alert Service
+    participant Billing as Billing Service
+    participant Audit as Audit Service
 
-    USER->>HMS: Create requisition
-    HMS->>INVENTORY: Process requisition
-    INVENTORY->>DB: Save requisition data
-    INVENTORY->>APPROVAL: Send for approval
-    APPROVAL->>NOT: Send approval notification
-    NOT->>MANAGER: Requisition approval request
-    MANAGER->>HMS: Review requisition
-    HMS->>INVENTORY: Access requisition details
-    INVENTORY->>DB: Retrieve requisition data
-    DB-->>INVENTORY: Return requisition info
-    INVENTORY-->>HMS: Display requisition
-    HMS-->>MANAGER: Show requisition details
-    MANAGER->>APPROVAL: Approve requisition
-    APPROVAL->>DB: Update approval status
-    APPROVAL->>PO: Create purchase order
-    PO->>DB: Save purchase order
-    APPROVAL->>NOT: Send approval notification
-    NOT->>USER: Requisition approved
-    PO->>NOT: Send PO notification
-    NOT->>MANAGER: Purchase order created
-    INVENTORY-->>USER: Requisition processed
+    Staff->>Frontend: Issue items to patient
+    Frontend->>API: POST /api/inventory/issues
+    
+    API->>DB: Check item availability
+    DB-->>API: Availability confirmed
+    
+    API->>DB: Update stock levels
+    DB-->>API: Stock updated
+    
+    API->>Alert: Check for low stock alerts
+    Alert-->>API: Alert status returned
+    
+    API->>Billing: Create billing entry
+    Billing-->>API: Billing entry created
+    
+    API->>Audit: Log issue transaction
+    Audit-->>API: Transaction logged
+    
+    API-->>Frontend: Items issued successfully
+    Frontend-->>Staff: Issue confirmation
+    
+    Note over Staff, Audit: Items issued with billing integration
 ```
 
-## Purchase Order Management Flow
+## 4. Low Stock Alert Workflow
 
 ```mermaid
 sequenceDiagram
-    participant STAFF as Procurement Staff
-    participant MANAGER as Finance Manager
-    participant HMS as HMS System
-    participant PO as Purchase Order System
+    participant System as System
+    participant API as Inventory API
     participant DB as Database
-    participant SUPPLIER as Supplier System
-    participant APPROVAL as Approval System
-    participant NOT as Notification Service
+    participant Alert as Alert Service
+    participant Notification as Notification Service
+    participant Staff as Inventory Manager
 
-    STAFF->>HMS: Create purchase order
-    HMS->>PO: Process PO creation
-    PO->>DB: Save PO data
-    PO->>APPROVAL: Send for approval
-    APPROVAL->>NOT: Send approval notification
-    NOT->>MANAGER: PO approval request
-    MANAGER->>HMS: Review purchase order
-    HMS->>PO: Access PO details
-    PO->>DB: Retrieve PO data
-    DB-->>PO: Return PO information
-    PO-->>HMS: Display PO details
-    HMS-->>MANAGER: Show purchase order
-    MANAGER->>APPROVAL: Approve purchase order
-    APPROVAL->>DB: Update approval status
-    APPROVAL->>SUPPLIER: Send PO to supplier
-    SUPPLIER->>PO: Acknowledge PO
-    PO->>DB: Update PO status
-    PO->>NOT: Send PO notification
-    NOT->>STAFF: PO sent to supplier
-    PO-->>STAFF: Purchase order processed
+    System->>API: Check stock levels
+    API->>DB: Query current stock levels
+    DB-->>API: Stock levels returned
+    
+    API->>Alert: Evaluate stock levels
+    Alert-->>API: Low stock items identified
+    
+    API->>Notification: Send low stock alerts
+    Notification-->>API: Alerts sent
+    
+    Notification->>Staff: Email/SMS alert
+    Staff-->>Notification: Alert received
+    
+    Note over System, Staff: Automated low stock monitoring
 ```
 
-## Inventory Audit Flow
+## 5. Stock Transfer Workflow
 
 ```mermaid
 sequenceDiagram
-    participant AUDITOR as Inventory Auditor
-    participant STAFF as Inventory Staff
-    participant HMS as HMS System
-    participant INVENTORY as Inventory System
+    participant Staff as Inventory Staff
+    participant Frontend as Frontend
+    participant API as Inventory API
     participant DB as Database
-    participant AUDIT as Audit System
-    participant ADJUSTMENT as Adjustment System
-    participant NOT as Notification Service
+    participant Auth as Auth Service
+    participant Audit as Audit Service
 
-    AUDITOR->>HMS: Initiate inventory audit
-    HMS->>AUDIT: Start audit process
-    AUDIT->>DB: Get current inventory data
-    DB-->>AUDIT: Return inventory records
-    AUDIT-->>HMS: Display inventory data
-    HMS-->>AUDITOR: Show inventory to audit
-    AUDITOR->>STAFF: Conduct physical count
-    STAFF->>AUDIT: Enter physical count
-    AUDIT->>AUDIT: Compare physical vs system
-    AUDIT->>AUDIT: Identify discrepancies
-    alt Discrepancies Found
-        AUDIT->>ADJUSTMENT: Create adjustment entries
-        ADJUSTMENT->>DB: Record adjustments
-        ADJUSTMENT->>NOT: Send adjustment notification
-        NOT->>AUDITOR: Discrepancy notification
-    end
-    AUDIT->>DB: Save audit results
-    AUDIT->>NOT: Send audit completion
-    NOT->>AUDITOR: Audit complete
-    AUDIT-->>AUDITOR: Inventory audit finished
+    Staff->>Frontend: Transfer items between locations
+    Frontend->>API: POST /api/inventory/transfers
+    
+    API->>Auth: Verify transfer permissions
+    Auth-->>API: Transfer authorized
+    
+    API->>DB: Check source location stock
+    DB-->>API: Stock availability confirmed
+    
+    API->>DB: Update both locations
+    DB-->>API: Transfer completed
+    
+    API->>Audit: Log transfer transaction
+    Audit-->>API: Transaction logged
+    
+    API-->>Frontend: Transfer completed
+    Frontend-->>Staff: Transfer confirmation
+    
+    Note over Staff, Audit: Stock transferred between locations
 ```
 
-## Supplier Management Flow
+## 6. Purchase Order Creation Workflow
 
 ```mermaid
 sequenceDiagram
-    participant STAFF as Procurement Staff
-    participant SUPPLIER as Supplier
-    participant HMS as HMS System
-    participant VENDOR as Vendor Management
+    participant Staff as Procurement Staff
+    participant Frontend as Frontend
+    participant API as Inventory API
     participant DB as Database
-    participant EVALUATION as Evaluation System
-    participant PERFORMANCE as Performance System
-    participant NOT as Notification Service
+    participant Supplier as Supplier Service
+    participant Approval as Approval Service
+    participant Audit as Audit Service
 
-    STAFF->>HMS: Access supplier management
-    HMS->>VENDOR: Get supplier information
-    VENDOR->>DB: Query supplier database
-    DB-->>VENDOR: Return supplier data
-    VENDOR-->>HMS: Display supplier list
-    HMS-->>STAFF: Show supplier information
-    STAFF->>VENDOR: Add new supplier
-    VENDOR->>DB: Save supplier data
-    VENDOR->>EVALUATION: Initiate supplier evaluation
-    EVENDOR->>PERFORMANCE: Track supplier performance
-    PERFORMANCE->>DB: Record performance metrics
-    PERFORMANCE-->>EVALUATION: Return performance data
-    EVALUATION->>DB: Save evaluation results
-    EVALUATION->>NOT: Send evaluation notification
-    NOT->>STAFF: Supplier evaluation complete
-    VENDOR-->>STAFF: Supplier management complete
+    Staff->>Frontend: Create purchase order
+    Frontend->>API: POST /api/inventory/purchase-orders
+    
+    API->>DB: Validate items and quantities
+    DB-->>API: Items validated
+    
+    API->>Supplier: Get supplier pricing
+    Supplier-->>API: Pricing returned
+    
+    API->>Approval: Submit for approval
+    Approval-->>API: Approval workflow started
+    
+    API->>DB: Create purchase order
+    DB-->>API: PO created
+    
+    API->>Audit: Log PO creation
+    Audit-->>API: PO logged
+    
+    API-->>Frontend: PO created successfully
+    Frontend-->>Staff: PO creation confirmation
+    
+    Note over Staff, Audit: Purchase order created with approval
 ```
 
-## Asset Management Flow
+## 7. Expiration Alert Workflow
 
 ```mermaid
 sequenceDiagram
-    participant STAFF as Asset Manager
-    participant USER as Asset User
-    participant HMS as HMS System
-    participant ASSET as Asset Management
+    participant System as System
+    participant API as Inventory API
     participant DB as Database
-    participant MAINTENANCE as Maintenance System
-    participant TRACKING as Asset Tracking
-    participant NOT as Notification Service
+    participant Alert as Alert Service
+    participant Notification as Notification Service
+    participant Staff as Inventory Staff
 
-    STAFF->>HMS: Access asset management
-    HMS->>ASSET: Get asset information
-    ASSET->>DB: Query asset database
-    DB-->>ASSET: Return asset data
-    ASSET-->>HMS: Display asset list
-    HMS-->>STAFF: Show asset information
-    STAFF->>ASSET: Register new asset
-    ASSET->>DB: Save asset data
-    ASSET->>TRACKING: Start asset tracking
-    TRACKING->>DB: Record tracking information
-    USER->>ASSET: Report asset usage
-    ASSET->>DB: Update usage records
-    ASSET->>MAINTENANCE: Schedule maintenance
-    MAINTENANCE->>DB: Record maintenance schedule
-    MAINTENANCE->>NOT: Send maintenance notification
-    NOT->>STAFF: Maintenance due
-    ASSET-->>STAFF: Asset management complete
+    System->>API: Check expiration dates
+    API->>DB: Query items nearing expiration
+    DB-->>API: Expiring items returned
+    
+    API->>Alert: Evaluate expiration dates
+    Alert-->>API: Expiration alerts generated
+    
+    API->>Notification: Send expiration alerts
+    Notification-->>API: Alerts sent
+    
+    Notification->>Staff: Email/SMS alert
+    Staff-->>Notification: Alert received
+    
+    Note over System, Staff: Automated expiration monitoring
 ```
 
-## Expiry Management Flow
+## 8. Cycle Count Workflow
 
 ```mermaid
 sequenceDiagram
-    participant SYSTEM as System Monitor
-    participant HMS as HMS System
-    participant INVENTORY as Inventory System
+    participant Staff as Inventory Auditor
+    participant Frontend as Frontend
+    participant API as Inventory API
     participant DB as Database
-    participant EXPIRY as Expiry Management
-    participant ALERT as Alert System
-    participant STAFF as Inventory Staff
-    participant DISPOSAL as Disposal System
+    participant Scanner as Barcode Scanner
+    participant Audit as Audit Service
 
-    SYSTEM->>HMS: Check expiry dates
-    HMS->>EXPIRY: Monitor expiry dates
-    EXPIRY->>DB: Query inventory expiry
-    DB-->>EXPIRY: Return expiry data
-    EXPIRY->>EXPIRY: Check expiry status
-    alt Near Expiry
-        EXPIRY->>ALERT: Generate expiry alert
-        ALERT->>NOT: Send expiry notification
-        NOT->>STAFF: Near expiry alert
-    else Expired Items
-        EXPIRY->>ALERT: Generate expired alert
-        ALERT->>NOT: Send expired notification
-        NOT->>STAFF: Expired items alert
-        STAFF->>DISPOSAL: Initiate disposal
-        DISPOSAL->>DB: Record disposal
-        DISPOSAL->>INVENTORY: Remove from inventory
-        INVENTORY->>DB: Update stock levels
-    end
-    EXPIRY->>DB: Update expiry status
-    EXPIRY-->>HMS: Expiry management complete
+    Staff->>Frontend: Start cycle count
+    Frontend->>API: POST /api/inventory/cycle-count
+    
+    API->>DB: Create cycle count record
+    DB-->>API: Cycle count created
+    
+    Staff->>Scanner: Scan item barcode
+    Scanner->>Frontend: Barcode data
+    Frontend->>API: POST /api/inventory/cycle-count/items
+    
+    API->>DB: Record counted quantity
+    DB-->>API: Count recorded
+    
+    API->>DB: Compare with system quantity
+    DB-->>API: Discrepancy identified
+    
+    API->>Audit: Log count discrepancy
+    Audit-->>API: Discrepancy logged
+    
+    API-->>Frontend: Count completed
+    Frontend-->>Staff: Count results displayed
+    
+    Note over Staff, Audit: Cycle count with discrepancy tracking
 ```
 
-## Inventory Optimization Flow
+## 9. Stock Adjustment Workflow
 
 ```mermaid
 sequenceDiagram
-    participant ADMIN as Administrator
-    participant HMS as HMS System
-    participant INVENTORY as Inventory System
+    participant Staff as Inventory Manager
+    participant Frontend as Frontend
+    participant API as Inventory API
     participant DB as Database
-    participant ANALYTICS as Analytics Engine
-    participant OPTIMIZATION as Optimization Engine
-    participant FORECASTING as Forecasting System
-    participant RECOMMENDATION as Recommendation Engine
+    participant Auth as Auth Service
+    participant Audit as Audit Service
 
-    ADMIN->>HMS: Request inventory optimization
-    HMS->>INVENTORY: Initiate optimization
-    INVENTORY->>DB: Query inventory data
-    DB-->>INVENTORY: Return inventory information
-    INVENTORY->>ANALYTICS: Analyze inventory patterns
-    ANALYTICS->>ANALYTICS: Calculate optimization metrics
-    Note over ANALYTICS: - Stock turnover<br/>- Demand patterns<br/>- Cost analysis<br/>- Usage trends
-    ANALYTICS-->>INVENTORY: Return analytics results
-    INVENTORY->>FORECASTING: Predict demand
-    FORECASTING->>DB: Analyze historical data
-    DB-->>FORECASTING: Return historical patterns
-    FORECASTING-->>INVENTORY: Return demand forecast
-    INVENTORY->>OPTIMIZATION: Optimize inventory levels
-    OPTIMIZATION->>RECOMMENDATION: Generate recommendations
-    RECOMMENDATION->>ANALYTICS: Validate recommendations
-    ANALYTICS-->>RECOMMENDATION: Return validation results
-    RECOMMENDATION-->>INVENTORY: Return optimization recommendations
-    INVENTORY-->>HMS: Return optimization results
-    HMS-->>ADMIN: Display inventory optimization insights
+    Staff->>Frontend: Adjust stock quantity
+    Frontend->>API: POST /api/inventory/adjustments
+    
+    API->>Auth: Verify adjustment permissions
+    Auth-->>API: Adjustment authorized
+    
+    API->>DB: Record adjustment reason
+    DB-->>API: Reason recorded
+    
+    API->>DB: Update stock quantity
+    DB-->>API: Stock updated
+    
+    API->>Audit: Log adjustment transaction
+    Audit-->>API: Transaction logged
+    
+    API-->>Frontend: Adjustment completed
+    Frontend-->>Staff: Adjustment confirmation
+    
+    Note over Staff, Audit: Stock adjustment with audit trail
 ```
 
-## Multi-Location Inventory Flow
+## 10. Inventory Report Generation Workflow
 
 ```mermaid
 sequenceDiagram
-    participant LOC1 as Location 1 Staff
-    participant LOC2 as Location 2 Staff
-    participant HMS as HMS System
-    participant INVENTORY as Inventory System
+    participant Staff as Manager
+    participant Frontend as Frontend
+    participant API as Inventory API
     participant DB as Database
-    participant CENTRAL as Central Inventory
-    participant DISTRIBUTION as Distribution System
-    participant NOT as Notification Service
+    participant Report as Report Service
+    participant Export as Export Service
 
-    LOC1->>HMS: Check local inventory
-    HMS->>INVENTORY: Query location inventory
-    INVENTORY->>DB: Check local stock
-    DB-->>INVENTORY: Return local inventory
-    INVENTORY-->>HMS: Display local stock
-    HMS-->>LOC1: Show local inventory
-    LOC1->>INVENTORY: Request stock transfer
-    INVENTORY->>CENTRAL: Check central stock
-    CENTRAL->>DB: Query central inventory
-    DB-->>CENTRAL: Return central stock
-    CENTRAL-->>INVENTORY: Central stock available
-    INVENTORY->>DISTRIBUTION: Initiate distribution
-    DISTRIBUTION->>DB: Create distribution record
-    DISTRIBUTION->>NOT: Send distribution notification
-    NOT->>LOC2: Stock transfer notification
-    LOC2->>HMS: Acknowledge transfer
-    HMS->>DISTRIBUTION: Process distribution
-    DISTRIBUTION->>DB: Update both locations
-    DISTRIBUTION->>NOT: Send completion notification
-    NOT->>LOC1: Transfer completed
-    DISTRIBUTION-->>LOC2: Stock received
+    Staff->>Frontend: Request inventory report
+    Frontend->>API: GET /api/inventory/reports
+    
+    API->>DB: Query inventory data
+    DB-->>API: Data returned
+    
+    API->>Report: Generate report
+    Report-->>API: Report generated
+    
+    API->>Export: Format for export
+    Export-->>API: Report formatted
+    
+    API-->>Frontend: Report data returned
+    Frontend-->>Staff: Report displayed
+    
+    Note over Staff, Export: Inventory report generation
 ```
 
-## Inventory Analytics Flow
+## Key Features of These Sequence Diagrams
 
-```mermaid
-sequenceDiagram
-    participant ADMIN as Administrator
-    participant HMS as HMS System
-    participant INVENTORY as Inventory System
-    participant DB as Database
-    participant ANALYTICS as Analytics Engine
-    participant REPORT as Report Generator
-    participant DASHBOARD as Dashboard System
+### 1. **Comprehensive Inventory Operations**
+- Item management with barcode generation
+- Stock receiving and issuing processes
+- Stock transfers and adjustments
+- Purchase order management
 
-    ADMIN->>HMS: Request inventory analytics
-    HMS->>INVENTORY: Initiate analytics
-    INVENTORY->>ANALYTICS: Process inventory data
-    ANALYTICS->>DB: Query inventory metrics
-    DB-->>ANALYTICS: Return inventory data
-    ANALYTICS->>ANALYTICS: Calculate performance metrics
-    Note over ANALYTICS: - Stock levels<br/>- Turnover rates<br/>- Cost analysis<br/>- Usage patterns
-    ANALYTICS-->>INVENTORY: Return analytics results
-    INVENTORY->>REPORT: Generate inventory report
-    REPORT->>DB: Compile report data
-    DB-->>REPORT: Return report information
-    REPORT-->>INVENTORY: Inventory report ready
-    INVENTORY->>DASHBOARD: Update dashboard
-    DASHBOARD->>DB: Save dashboard data
-    DASHBOARD-->>INVENTORY: Dashboard updated
-    INVENTORY-->>HMS: Return analytics results
-    HMS-->>ADMIN: Display inventory analytics
-    ADMIN->>HMS: Request trend analysis
-    HMS->>ANALYTICS: Analyze historical trends
-    ANALYTICS->>DB: Query historical data
-    DB-->>ANALYTICS: Return trend data
-    ANALYTICS-->>HMS: Trend analysis results
-    HMS-->>ADMIN: Inventory trends and recommendations
-```
+### 2. **Automated Monitoring**
+- Low stock alerts and notifications
+- Expiration date monitoring
+- Cycle counting and reconciliation
+- Automated reorder suggestions
+
+### 3. **Integration Points**
+- Barcode scanning integration
+- Billing system integration
+- Supplier system integration
+- Approval workflow integration
+
+### 4. **Audit and Compliance**
+- Complete audit trail for all transactions
+- Regulatory compliance tracking
+- Data integrity and validation
+- Security and access control
+
+### 5. **User Experience**
+- Intuitive workflows for inventory staff
+- Mobile support for barcode scanning
+- Real-time updates and notifications
+- Comprehensive reporting capabilities
+
+These sequence diagrams provide a complete view of the inventory management workflows, ensuring that all inventory operations are properly documented, secure, and efficient.
