@@ -1,6 +1,5 @@
 import { BaseService } from '../../base/Service';
 import { AppointmentModel, PatientModel, StaffModel } from '../../../models';
-import { getRow, getAll, runQuery } from '../../../database/legacy';
 import { 
   generateAppointmentId, 
   hasTimeConflict,

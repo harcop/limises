@@ -62,7 +62,7 @@ const StaffSchema = new Schema<IStaff>({
     required: true
   },
   hireDate: {
-    type: Date,
+    type: String,
     required: true
   },
   terminationDate: {
@@ -107,7 +107,7 @@ StaffSchema.index({ position: 1 });
 StaffSchema.index({ status: 1 });
 
 // Virtual for full name
-StaffSchema.virtual('fullName').get(function() {
+StaffSchema.virtual('fullName').get(function(this: IStaff) {
   return `${this.firstName} ${this.lastName}`;
 });
 

@@ -4,8 +4,11 @@ import { validateId, validatePagination, validateStaff } from '../../middleware/
 import { StaffController } from './controllers/StaffController';
 
 export class StaffModule extends BaseModule {
+  private controller: StaffController;
+
   constructor() {
     super('StaffModule');
+    this.controller = new StaffController();
   }
 
   protected initializeRoutes(): void {
@@ -26,46 +29,46 @@ export class StaffModule extends BaseModule {
     this.router.post('/', 
       authorize('admin'), 
       validateStaff, 
-      StaffController.createStaff
+      this.controller.createStaff
     );
 
     this.router.get('/', 
       authorize('receptionist', 'admin', 'doctor', 'nurse'), 
       validatePagination, 
-      StaffController.getStaff
+      this.controller.getStaff
     );
 
     this.router.get('/departments', 
       authorize('receptionist', 'admin', 'doctor', 'nurse'), 
-      StaffController.getDepartments
+      this.controller.getDepartments
     );
 
     this.router.get('/positions', 
       authorize('receptionist', 'admin', 'doctor', 'nurse'), 
-      StaffController.getPositions
+      this.controller.getPositions
     );
 
     this.router.get('/stats', 
       authorize('receptionist', 'admin', 'doctor', 'nurse'), 
-      StaffController.getStaffStats
+      this.controller.getStaffStats
     );
 
     this.router.get('/:staffId', 
       authorize('receptionist', 'admin', 'doctor', 'nurse'), 
       validateId, 
-      StaffController.getStaffMember
+      this.controller.getStaffMember
     );
 
     this.router.put('/:staffId', 
       authorize('admin'), 
       validateId, 
-      StaffController.updateStaff
+      this.controller.updateStaff
     );
 
     this.router.delete('/:staffId', 
       authorize('admin'), 
       validateId, 
-      StaffController.deactivateStaff
+      this.controller.deactivateStaff
     );
 
     this.log('info', 'Staff module routes initialized');

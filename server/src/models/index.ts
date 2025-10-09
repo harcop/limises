@@ -24,3 +24,11 @@ export type { IBillingAccount } from '../modules/billing/models';
 // Inventory Module
 export { InventoryItemModel, InventoryTransactionModel, PurchaseOrderModel } from '../modules/inventory/models';
 export type { IInventoryItem, IInventoryTransaction, IPurchaseOrder, IPurchaseOrderItem } from '../modules/inventory/models';
+
+// Laboratory Module
+export { LabOrderModel, LabSampleModel, LabResultModel } from '../modules/laboratory/models';
+export type { ILabOrder, ILabSample, ILabResult } from '../modules/laboratory/models';
+
+// Pharmacy Module
+export { DrugModel, PharmacyInventoryModel, DispenseModel } from '../modules/pharmacy/models';
+export type { IDrug, IPharmacyInventory, IDispense } from '../modules/pharmacy/models';

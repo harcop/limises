@@ -1,6 +1,5 @@
 import { BaseService } from '../../base/Service';
 import { BillingAccountModel } from '../../../models';
-import { runQuery, getRow, getAll } from '../../../database/legacy';
 import { 
   generateChargeId,
   generatePaymentId,

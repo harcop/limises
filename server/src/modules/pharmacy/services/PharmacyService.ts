@@ -1,6 +1,5 @@
 import { BaseService } from '../../base/Service';
-import { DrugMasterModel } from '../../../models';
-import { runQuery, getRow, getAll } from '../../../database/legacy';
+import { DrugModel, PharmacyInventoryModel, DispenseModel } from '../../../models';
 import { generateId, sanitizeString } from '../../../utils/helpers';
 
 export interface CreateDrugDto {
@@ -81,7 +80,7 @@ export class PharmacyService extends BaseService {
       }
 
       // Check for duplicate drug
-      const existingDrug = await DrugMasterModel.findOne({
+      const existingDrug = await DrugModel.findOne({
         $or: [
           { drugName: sanitizeString(drugData.drugName) },
           { ndcNumber: drugData.ndcNumber ? sanitizeString(drugData.ndcNumber) : undefined }
@@ -96,7 +95,7 @@ export class PharmacyService extends BaseService {
       const drugId = generateId('DRUG', 6);
 
       // Create drug
-      const drug = new DrugMasterModel({
+      const drug = new DrugModel({
         drugId,
         drugName: sanitizeString(drugData.drugName),
         genericName: drugData.genericName ? sanitizeString(drugData.genericName) : undefined,
@@ -147,8 +146,8 @@ export class PharmacyService extends BaseService {
         ];
       }
 
-      const total = await DrugMasterModel.countDocuments(filter);
-      const drugs = await DrugMasterModel.find(filter)
+      const total = await DrugModel.countDocuments(filter);
+      const drugs = await DrugModel.find(filter)
         .select('-__v')
         .sort({ drugName: 1 })
         .skip(skip)
@@ -171,7 +170,7 @@ export class PharmacyService extends BaseService {
 
   async getDrug(drugId: string): Promise<any> {
     try {
-      const drug = await DrugMasterModel.findOne({ drugId }).select('-__v');
+      const drug = await DrugModel.findOne({ drugId }).select('-__v');
       if (!drug) {
         throw new Error('Drug not found');
       }
@@ -184,7 +183,7 @@ export class PharmacyService extends BaseService {
   async updateDrug(drugId: string, updateData: UpdateDrugDto): Promise<any> {
     try {
       // Check if drug exists
-      const existingDrug = await DrugMasterModel.findOne({ drugId });
+      const existingDrug = await DrugModel.findOne({ drugId });
       if (!existingDrug) {
         throw new Error('Drug not found');
       }
@@ -199,7 +198,7 @@ export class PharmacyService extends BaseService {
       if (sanitizedData.manufacturer) sanitizedData.manufacturer = sanitizeString(sanitizedData.manufacturer);
       if (sanitizedData.ndcNumber) sanitizedData.ndcNumber = sanitizeString(sanitizedData.ndcNumber);
 
-      const updatedDrug = await DrugMasterModel.findOneAndUpdate(
+      const updatedDrug = await DrugModel.findOneAndUpdate(
         { drugId },
         { ...sanitizedData, updatedAt: new Date().toISOString() },
         { new: true }
@@ -214,7 +213,7 @@ export class PharmacyService extends BaseService {
 
   async deactivateDrug(drugId: string): Promise<boolean> {
     try {
-      const result = await DrugMasterModel.findOneAndUpdate(
+      const result = await DrugModel.findOneAndUpdate(
         { drugId },
         { isActive: false, updatedAt: new Date().toISOString() }
       );
@@ -293,7 +292,7 @@ export class PharmacyService extends BaseService {
       }
 
       // Check if drug exists
-      const drug = await DrugMasterModel.findOne({ drugId: inventoryData.drugId });
+      const drug = await DrugModel.findOne({ drugId: inventoryData.drugId });
       if (!drug) {
         throw new Error('Drug not found');
       }
@@ -400,7 +399,7 @@ export class PharmacyService extends BaseService {
       }
 
       // Check if drug exists and is active
-      const drug = await DrugMasterModel.findOne({ drugId: dispenseData.drugId, isActive: true });
+      const drug = await DrugModel.findOne({ drugId: dispenseData.drugId, status: 'active' });
       if (!drug) {
         throw new Error('Drug not found or inactive');
       }
@@ -464,47 +463,39 @@ export class PharmacyService extends BaseService {
   async getPharmacyStats(): Promise<any> {
     try {
       // Get drug statistics
-      const drugStats = await getRow(
-        `SELECT 
-         COUNT(*) as totalDrugs,
-         COUNT(CASE WHEN is_active = 1 THEN 1 END) as activeDrugs,
-         COUNT(CASE WHEN is_controlled = 1 THEN 1 END) as controlledDrugs
-         FROM drug_master`
-      );
+      const totalDrugs = await DrugModel.countDocuments();
+      const activeDrugs = await DrugModel.countDocuments({ status: 'active' });
+      const controlledDrugs = await DrugModel.countDocuments({ isControlled: true });
 
       // Get inventory statistics
-      const inventoryStats = await getRow(
-        `SELECT 
-         COUNT(*) as totalInventoryItems,
-         SUM(quantity) as totalQuantity,
-         COUNT(CASE WHEN expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 END) as expiringSoon
-         FROM pharmacy_inventory 
-         WHERE status = 'available'`
-      );
+      const totalInventoryItems = await PharmacyInventoryModel.countDocuments({ status: 'available' });
+      const inventoryAggregation = await PharmacyInventoryModel.aggregate([
+        { $match: { status: 'available' } },
+        { $group: { _id: null, totalQuantity: { $sum: '$quantity' }, totalValue: { $sum: { $multiply: ['$quantity', '$unitPrice'] } } } }
+      ]);
 
       // Get dispense statistics (last 30 days)
-      const dispenseStats = await getRow(
-        `SELECT 
-         COUNT(*) as totalDispenses,
-         SUM(quantity) as totalQuantityDispensed
-         FROM pharmacy_dispenses 
-         WHERE dispense_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`
-      );
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const dispenseAggregation = await DispenseModel.aggregate([
+        { $match: { dispenseDate: { $gte: thirtyDaysAgo.toISOString().split('T')[0] } } },
+        { $group: { _id: null, totalDispenses: { $sum: 1 }, totalQuantityDispensed: { $sum: '$quantity' } } }
+      ]);
 
       return {
         drugs: {
-          totalDrugs: drugStats?.totalDrugs || 0,
-          activeDrugs: drugStats?.activeDrugs || 0,
-          controlledDrugs: drugStats?.controlledDrugs || 0
+          totalDrugs,
+          activeDrugs,
+          controlledDrugs
         },
         inventory: {
-          totalInventoryItems: inventoryStats?.totalInventoryItems || 0,
-          totalQuantity: inventoryStats?.totalQuantity || 0,
-          expiringSoon: inventoryStats?.expiringSoon || 0
+          totalInventoryItems,
+          totalQuantity: inventoryAggregation[0]?.totalQuantity || 0,
+          totalValue: inventoryAggregation[0]?.totalValue || 0
         },
         dispenses: {
-          totalDispenses: dispenseStats?.totalDispenses || 0,
-          totalQuantityDispensed: dispenseStats?.totalQuantityDispensed || 0
+          totalDispenses: dispenseAggregation[0]?.totalDispenses || 0,
+          totalQuantityDispensed: dispenseAggregation[0]?.totalQuantityDispensed || 0
         }
       };
     } catch (error) {
