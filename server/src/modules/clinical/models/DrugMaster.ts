@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { DrugMaster } from '../types';
+import { DrugMaster } from '../interfaces';
 
 export interface IDrugMaster extends DrugMaster, Document {}
 

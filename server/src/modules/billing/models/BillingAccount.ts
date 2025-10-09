@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { BillingAccount } from '../types';
+import { BillingAccount } from '../interfaces';
 
 export interface IBillingAccount extends BillingAccount, Document {}
 

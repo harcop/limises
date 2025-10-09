@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { Patient } from '../types';
+import { Patient } from '../interfaces';
 
 export interface IPatient extends Patient, Document {}
 

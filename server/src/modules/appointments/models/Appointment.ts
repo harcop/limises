@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { Appointment } from '../types';
+import { Appointment } from '../interfaces';
 
 export interface IAppointment extends Appointment, Document {}
 

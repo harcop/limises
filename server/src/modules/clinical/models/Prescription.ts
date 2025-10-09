@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { Prescription } from '../types';
+import { Prescription } from '../interfaces';
 
 export interface IPrescription extends Prescription, Document {}
 

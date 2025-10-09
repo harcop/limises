@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { Staff } from '../types';
+import { Staff } from '../interfaces';
 
 export interface IStaff extends Staff, Document {}
 
