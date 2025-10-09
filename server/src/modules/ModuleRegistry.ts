@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { BaseModule } from './base/Module';
-import { InventoryModule } from './inventory/InventoryModule';
 import { logger } from '../utils/logger';
 
 export interface ModuleConfig {

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { BaseModule } from '../base/Module';
-import { authenticate, authorize } from '../../middleware/auth';
-import { validateId, validatePagination, validatePatient, validatePatientUpdate, validateInsurance } from '../../middleware/validation';
+import { authenticate, authorize } from '../../../middleware/auth';
+import { validateId, validatePagination, validatePatient, validatePatientUpdate, validateInsurance } from '../../../middleware/validation';
 import { PatientsController } from './controllers/PatientsController';
 
 export class PatientsModule extends BaseModule {

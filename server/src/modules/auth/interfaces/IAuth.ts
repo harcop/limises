@@ -40,9 +40,14 @@ export interface StaffAuthRequest extends Request {
 // Generic AuthRequest for backward compatibility
 export interface AuthRequest extends Request {
   user?: {
+    userId: string;
     staffId: string;
     username: string;
     email: string;
+    firstName?: string;
+    lastName?: string;
+    department?: string;
+    position?: string;
     roles: string[];
     permissions: string[];
   };

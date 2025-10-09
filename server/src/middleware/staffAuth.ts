@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { Response, NextFunction } from 'express';
-import { getRow } from '../database/connection';
 import { logger } from '../utils/logger';
 import { StaffAuthRequest, StaffAuth, JWTPayload } from '../types';
+import { StaffModel, StaffAuthModel } from '../models';
 
 // Generate JWT token for staff
 export const generateStaffToken = (authId: string, staffId: string, username: string, roles: string[] = []): string => {
@@ -58,14 +58,11 @@ export const authenticateStaff = async (req: StaffAuthRequest, res: Response, ne
       // Verify token
       const decoded = verifyStaffToken(token);
       
-      // Get staff authentication from database
-      const staffAuth = await getRow(
-        `SELECT sa.*, s.first_name, s.last_name, s.department, s.position, s.status as staff_status
-         FROM staff_auth sa 
-         JOIN staff s ON sa.staff_id = s.staff_id 
-         WHERE sa.auth_id = ? AND sa.is_active = 1 AND s.status = 'active'`,
-        [decoded.authId]
-      );
+      // Get staff authentication from MongoDB
+      const staffAuth = await StaffAuthModel.findOne({ 
+        authId: decoded.authId, 
+        isActive: true 
+      });
 
       if (!staffAuth) {
         res.status(401).json({
@@ -76,7 +73,7 @@ export const authenticateStaff = async (req: StaffAuthRequest, res: Response, ne
       }
 
       // Check if account is locked
-      if (staffAuth.locked_until && new Date(staffAuth.locked_until) > new Date()) {
+      if (staffAuth.lockedUntil && new Date(staffAuth.lockedUntil) > new Date()) {
         res.status(423).json({
           success: false,
           error: 'Staff account is temporarily locked'
@@ -84,34 +81,28 @@ export const authenticateStaff = async (req: StaffAuthRequest, res: Response, ne
         return;
       }
 
-      // Get staff roles
-      const roles = await getRow(
-        `SELECT GROUP_CONCAT(sr.role_name) as roles 
-         FROM staff_role_assignments sra 
-         JOIN staff_roles sr ON sra.role_id = sr.role_id 
-         WHERE sra.staff_id = ? AND sra.is_active = 1 AND sr.is_active = 1`,
-        [staffAuth.staff_id]
-      );
+      // Get staff details
+      const staff = await StaffModel.findOne({ 
+        staffId: staffAuth.staffId, 
+        status: 'active' 
+      });
 
-      // Get staff permissions
-      const permissions = await getRow(
-        `SELECT GROUP_CONCAT(p.permission_name) as permissions 
-         FROM staff_role_assignments sra 
-         JOIN staff_roles sr ON sra.role_id = sr.role_id 
-         JOIN role_permissions rp ON sr.role_id = rp.role_id 
-         JOIN permissions p ON rp.permission_id = p.permission_id 
-         WHERE sra.staff_id = ? AND sra.is_active = 1 AND sr.is_active = 1 AND p.is_active = 1`,
-        [staffAuth.staff_id]
-      );
+      if (!staff) {
+        res.status(401).json({
+          success: false,
+          error: 'Staff member not found or inactive'
+        });
+        return;
+      }
 
       // Add staff info to request
       req.user = {
-        authId: staffAuth.auth_id,
-        staffId: staffAuth.staff_id,
+        authId: staffAuth.authId,
+        staffId: staffAuth.staffId,
         username: staffAuth.username,
         email: staffAuth.email,
-        roles: roles?.roles ? roles.roles.split(',') : [],
-        permissions: permissions?.permissions ? permissions.permissions.split(',') : []
+        roles: staffAuth.roles || [],
+        permissions: staffAuth.permissions || []
       };
 
       next();
@@ -194,41 +185,30 @@ export const optionalStaffAuth = async (req: StaffAuthRequest, res: Response, ne
     if (token) {
       try {
         const decoded = verifyStaffToken(token);
-        const staffAuth = await getRow(
-          `SELECT sa.*, s.first_name, s.last_name, s.department, s.position, s.status as staff_status
-           FROM staff_auth sa 
-           JOIN staff s ON sa.staff_id = s.staff_id 
-           WHERE sa.auth_id = ? AND sa.is_active = 1 AND s.status = 'active'`,
-          [decoded.authId]
-        );
+        
+        // Get staff authentication from MongoDB
+        const staffAuth = await StaffAuthModel.findOne({ 
+          authId: decoded.authId, 
+          isActive: true 
+        });
 
         if (staffAuth) {
-          const roles = await getRow(
-            `SELECT GROUP_CONCAT(sr.role_name) as roles 
-             FROM staff_role_assignments sra 
-             JOIN staff_roles sr ON sra.role_id = sr.role_id 
-             WHERE sra.staff_id = ? AND sra.is_active = 1 AND sr.is_active = 1`,
-            [staffAuth.staff_id]
-          );
+          // Get staff details
+          const staff = await StaffModel.findOne({ 
+            staffId: staffAuth.staffId, 
+            status: 'active' 
+          });
 
-          const permissions = await getRow(
-            `SELECT GROUP_CONCAT(p.permission_name) as permissions 
-             FROM staff_role_assignments sra 
-             JOIN staff_roles sr ON sra.role_id = sr.role_id 
-             JOIN role_permissions rp ON sr.role_id = rp.role_id 
-             JOIN permissions p ON rp.permission_id = p.permission_id 
-             WHERE sra.staff_id = ? AND sra.is_active = 1 AND sr.is_active = 1 AND p.is_active = 1`,
-            [staffAuth.staff_id]
-          );
-
-          req.user = {
-            authId: staffAuth.auth_id,
-            staffId: staffAuth.staff_id,
-            username: staffAuth.username,
-            email: staffAuth.email,
-            roles: roles?.roles ? roles.roles.split(',') : [],
-            permissions: permissions?.permissions ? permissions.permissions.split(',') : []
-          };
+          if (staff) {
+            req.user = {
+              authId: staffAuth.authId,
+              staffId: staffAuth.staffId,
+              username: staffAuth.username,
+              email: staffAuth.email,
+              roles: staffAuth.roles || [],
+              permissions: staffAuth.permissions || []
+            };
+          }
         }
       } catch (error) {
         // Token is invalid, but we continue without user info

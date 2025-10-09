@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
-import { getRow } from '../database/connection';
 import { logger } from '../utils/logger';
 import { AuthRequest, JWTPayload } from '../types';
+import { StaffModel, StaffAuthModel } from '../models';
 
 // Generate JWT token
 export const generateToken = (userId: string, roles: string[] = []): string => {
@@ -51,13 +51,13 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       // Verify token
       const decoded = verifyToken(token);
       
-      // Get user from database
-      const user = await getRow(
-        'SELECT u.*, s.first_name, s.last_name, s.department, s.position FROM users u LEFT JOIN staff s ON u.staff_id = s.staff_id WHERE u.user_id = ? AND u.is_active = 1',
-        [decoded.userId]
-      );
+      // Get staff authentication from MongoDB
+      const staffAuth = await StaffAuthModel.findOne({ 
+        authId: decoded.userId, 
+        isActive: true 
+      }).populate('staffId');
 
-      if (!user) {
+      if (!staffAuth) {
         res.status(401).json({
           success: false,
           error: 'User not found or inactive'
@@ -65,24 +65,32 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         return;
       }
 
-      // Get user roles
-      const roles = await getRow(
-        'SELECT GROUP_CONCAT(role_name) as roles FROM user_roles WHERE user_id = ?',
-        [decoded.userId]
-      );
+      // Get staff details
+      const staff = await StaffModel.findOne({ 
+        staffId: staffAuth.staffId, 
+        status: 'active' 
+      });
+
+      if (!staff) {
+        res.status(401).json({
+          success: false,
+          error: 'Staff member not found or inactive'
+        });
+        return;
+      }
 
       // Add user info to request
       req.user = {
-        userId: user.user_id,
-        staffId: user.staff_id,
-        patientId: user.patient_id,
-        username: user.username,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        department: user.department,
-        position: user.position,
-        roles: roles?.roles ? roles.roles.split(',') : []
+        userId: staffAuth.authId,
+        staffId: staffAuth.staffId,
+        username: staffAuth.username,
+        email: staffAuth.email,
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        department: staff.department,
+        position: staff.position,
+        roles: staffAuth.roles || [],
+        permissions: staffAuth.permissions || []
       };
 
       next();
@@ -140,17 +148,8 @@ export const checkPermission = (permission: string) => {
         return;
       }
 
-      // Get user permissions based on roles
-      const permissions = await getRow(
-        `SELECT GROUP_CONCAT(p.permission_name) as permissions 
-         FROM user_roles ur 
-         JOIN role_permissions rp ON ur.role_name = rp.role_name 
-         JOIN permissions p ON rp.permission_name = p.permission_name 
-         WHERE ur.user_id = ?`,
-        [req.user.userId]
-      );
-
-      const userPermissions = permissions?.permissions ? permissions.permissions.split(',') : [];
+      // Check if user has the required permission
+      const userPermissions = req.user.permissions || [];
       
       if (!userPermissions.includes(permission)) {
         res.status(403).json({
@@ -183,29 +182,34 @@ export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFu
     if (token) {
       try {
         const decoded = verifyToken(token);
-        const user = await getRow(
-          'SELECT u.*, s.first_name, s.last_name, s.department, s.position FROM users u LEFT JOIN staff s ON u.staff_id = s.staff_id WHERE u.user_id = ? AND u.is_active = 1',
-          [decoded.userId]
-        );
+        
+        // Get staff authentication from MongoDB
+        const staffAuth = await StaffAuthModel.findOne({ 
+          authId: decoded.userId, 
+          isActive: true 
+        });
 
-        if (user) {
-          const roles = await getRow(
-            'SELECT GROUP_CONCAT(role_name) as roles FROM user_roles WHERE user_id = ?',
-            [decoded.userId]
-          );
+        if (staffAuth) {
+          // Get staff details
+          const staff = await StaffModel.findOne({ 
+            staffId: staffAuth.staffId, 
+            status: 'active' 
+          });
 
-          req.user = {
-            userId: user.user_id,
-            staffId: user.staff_id,
-            patientId: user.patient_id,
-            username: user.username,
-            email: user.email,
-            firstName: user.first_name,
-            lastName: user.last_name,
-            department: user.department,
-            position: user.position,
-            roles: roles?.roles ? roles.roles.split(',') : []
-          };
+          if (staff) {
+            req.user = {
+              userId: staffAuth.authId,
+              staffId: staffAuth.staffId,
+              username: staffAuth.username,
+              email: staffAuth.email,
+              firstName: staff.firstName,
+              lastName: staff.lastName,
+              department: staff.department,
+              position: staff.position,
+              roles: staffAuth.roles || [],
+              permissions: staffAuth.permissions || []
+            };
+          }
         }
       } catch (error) {
         // Token is invalid, but we continue without user info

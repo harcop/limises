@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { logger } from '../../utils/logger';
 
 export abstract class BaseModule {
   protected router: Router;
@@ -22,6 +23,6 @@ export abstract class BaseModule {
 
   protected log(level: 'info' | 'error' | 'warn', message: string, data?: any): void {
     const logMessage = `[${this.moduleName}] ${message}`;
-    console.log(`[${level.toUpperCase()}] ${logMessage}`, data || '');
+    logger[level](logMessage, data || '');
   }
 }

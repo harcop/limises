@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { BaseService } from './Service';
+import { logger } from '../../utils/logger';
 
 export abstract class BaseController {
   protected service: BaseService;
@@ -12,7 +13,7 @@ export abstract class BaseController {
 
   protected log(level: 'info' | 'error' | 'warn', message: string, data?: any): void {
     const logMessage = `[${this.controllerName}] ${message}`;
-    console.log(`[${level.toUpperCase()}] ${logMessage}`, data || '');
+    logger[level](logMessage, data || '');
   }
 
   protected sendSuccess(res: Response, data: any, message?: string, statusCode: number = 200): void {

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { BaseController } from '../../base/Controller';
 import { InventoryService } from '../services/InventoryService';
 import { AuthRequest } from '../../../types';
-import { validateId, validatePagination, validateDateRange } from '../../../middleware/validation';
+// Note: Validation middleware imports removed as they're not used in this controller
 
 export class InventoryController extends BaseController {
   constructor() {

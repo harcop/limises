@@ -2,10 +2,10 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
 import { generateStaffToken, authenticateStaff } from '../middleware/staffAuth';
-import { runQuery, getRow } from '../database/connection';
 import { generateId, generateStaffId, sanitizeString } from '../utils/helpers';
 import { logger } from '../utils/logger';
 import { StaffAuthRequest } from '../types';
+import { StaffModel, StaffAuthModel } from '../models';
 
 const router = express.Router();
 
@@ -48,14 +48,11 @@ router.post('/login', validateStaffLogin, async (req: Request, res: Response): P
 
     const { username, password } = req.body;
 
-    // Get staff authentication from database
-    const staffAuth = await getRow(
-      `SELECT sa.*, s.first_name, s.last_name, s.department, s.position, s.status as staff_status
-       FROM staff_auth sa 
-       JOIN staff s ON sa.staff_id = s.staff_id 
-       WHERE sa.username = ? AND sa.is_active = 1 AND s.status = 'active'`,
-      [username]
-    );
+    // Get staff authentication from MongoDB
+    const staffAuth = await StaffAuthModel.findOne({ 
+      username: username, 
+      isActive: true 
+    });
 
     if (!staffAuth) {
       res.status(401).json({
@@ -66,7 +63,7 @@ router.post('/login', validateStaffLogin, async (req: Request, res: Response): P
     }
 
     // Check if account is locked
-    if (staffAuth.locked_until && new Date(staffAuth.locked_until) > new Date()) {
+    if (staffAuth.lockedUntil && new Date(staffAuth.lockedUntil) > new Date()) {
       res.status(423).json({
         success: false,
         error: 'Account is temporarily locked due to multiple failed login attempts'
@@ -75,15 +72,18 @@ router.post('/login', validateStaffLogin, async (req: Request, res: Response): P
     }
 
     // Check password
-    const isPasswordValid = await bcrypt.compare(password, staffAuth.password_hash);
+    const isPasswordValid = await bcrypt.compare(password, staffAuth.password);
     if (!isPasswordValid) {
       // Increment failed login attempts
-      const failedAttempts = staffAuth.failed_login_attempts + 1;
+      const failedAttempts = staffAuth.failedLoginAttempts + 1;
       const lockUntil = failedAttempts >= 5 ? new Date(Date.now() + 30 * 60 * 1000) : null; // Lock for 30 minutes after 5 failed attempts
       
-      await runQuery(
-        'UPDATE staff_auth SET failed_login_attempts = ?, locked_until = ? WHERE auth_id = ?',
-        [failedAttempts, lockUntil, staffAuth.auth_id]
+      await StaffAuthModel.findOneAndUpdate(
+        { authId: staffAuth.authId },
+        { 
+          failedLoginAttempts: failedAttempts,
+          lockedUntil: lockUntil
+        }
       );
 
       res.status(401).json({
@@ -93,42 +93,49 @@ router.post('/login', validateStaffLogin, async (req: Request, res: Response): P
       return;
     }
 
+    // Get staff details
+    const staff = await StaffModel.findOne({ 
+      staffId: staffAuth.staffId, 
+      status: 'active' 
+    });
+
+    if (!staff) {
+      res.status(401).json({
+        success: false,
+        error: 'Staff member not found or inactive'
+      });
+      return;
+    }
+
     // Reset failed login attempts on successful login
-    await runQuery(
-      'UPDATE staff_auth SET failed_login_attempts = 0, locked_until = NULL, last_login = CURRENT_TIMESTAMP WHERE auth_id = ?',
-      [staffAuth.auth_id]
+    await StaffAuthModel.findOneAndUpdate(
+      { authId: staffAuth.authId },
+      { 
+        failedLoginAttempts: 0, 
+        lockedUntil: null, 
+        lastLogin: new Date()
+      }
     );
-
-    // Get staff roles
-    const roles = await getRow(
-      `SELECT GROUP_CONCAT(sr.role_name) as roles 
-       FROM staff_role_assignments sra 
-       JOIN staff_roles sr ON sra.role_id = sr.role_id 
-       WHERE sra.staff_id = ? AND sra.is_active = 1 AND sr.is_active = 1`,
-      [staffAuth.staff_id]
-    );
-
-    const userRoles = roles?.roles ? roles.roles.split(',') : [];
 
     // Generate JWT token
-    const token = generateStaffToken(staffAuth.auth_id, staffAuth.staff_id, staffAuth.username, userRoles);
+    const token = generateStaffToken(staffAuth.authId, staffAuth.staffId, staffAuth.username, staffAuth.roles || []);
 
-    logger.info(`Staff logged in: ${username} (${staffAuth.staff_id})`);
+    logger.info(`Staff logged in: ${username} (${staffAuth.staffId})`);
 
     res.json({
       success: true,
       message: 'Staff login successful',
       token,
       user: {
-        authId: staffAuth.auth_id,
-        staffId: staffAuth.staff_id,
+        authId: staffAuth.authId,
+        staffId: staffAuth.staffId,
         username: staffAuth.username,
         email: staffAuth.email,
-        firstName: staffAuth.first_name,
-        lastName: staffAuth.last_name,
-        department: staffAuth.department,
-        position: staffAuth.position,
-        roles: userRoles
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        department: staff.department,
+        position: staff.position,
+        roles: staffAuth.roles || []
       }
     });
 
@@ -168,10 +175,9 @@ router.post('/register', authenticateStaff, async (req: StaffAuthRequest, res: R
     const { username, password, email, firstName, lastName, department, position, hireDate, ...additionalData } = req.body;
 
     // Check if username or email already exists
-    const existingAuth = await getRow(
-      'SELECT auth_id FROM staff_auth WHERE username = ? OR email = ?',
-      [username, email]
-    );
+    const existingAuth = await StaffAuthModel.findOne({
+      $or: [{ username }, { email }]
+    });
 
     if (existingAuth) {
       res.status(400).json({
@@ -189,48 +195,35 @@ router.post('/register', authenticateStaff, async (req: StaffAuthRequest, res: R
     const staffId = generateStaffId();
     const authId = generateId('AUTH', 6);
 
-    // Start transaction
-    await runQuery('BEGIN TRANSACTION');
-
     try {
       // Create staff record
-      await runQuery(
-        `INSERT INTO staff (
-          staff_id, employee_id, first_name, last_name, email, department, position, 
-          hire_date, status, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)`,
-        [
-          staffId,
-          generateId('EMP', 6),
-          sanitizeString(firstName),
-          sanitizeString(lastName),
-          sanitizeString(email),
-          sanitizeString(department),
-          sanitizeString(position),
-          hireDate
-        ]
-      );
+      const staff = new StaffModel({
+        staffId,
+        employeeId: generateId('EMP', 6),
+        firstName: sanitizeString(firstName),
+        lastName: sanitizeString(lastName),
+        email: sanitizeString(email),
+        department: sanitizeString(department),
+        position: sanitizeString(position),
+        hireDate: new Date(hireDate),
+        employmentType: 'full_time',
+        status: 'active'
+      });
+
+      await staff.save();
 
       // Create staff authentication record
-      await runQuery(
-        `INSERT INTO staff_auth (
-          auth_id, staff_id, username, email, password_hash, is_active, created_at
-        ) VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
-        [authId, staffId, sanitizeString(username), sanitizeString(email), passwordHash]
-      );
+      const staffAuth = new StaffAuthModel({
+        authId,
+        staffId,
+        username: sanitizeString(username),
+        email: sanitizeString(email),
+        password: passwordHash,
+        isActive: true,
+        roles: ['staff']
+      });
 
-      // Assign default role (staff)
-      const defaultRole = await getRow('SELECT role_id FROM staff_roles WHERE role_name = ?', ['staff']);
-      if (defaultRole) {
-        await runQuery(
-          `INSERT INTO staff_role_assignments (
-            assignment_id, staff_id, role_id, assigned_by, assigned_date, created_at
-          ) VALUES (?, ?, ?, ?, CURRENT_DATE, CURRENT_TIMESTAMP)`,
-          [generateId('ASGN', 6), staffId, defaultRole.role_id, req.user.staffId]
-        );
-      }
-
-      await runQuery('COMMIT');
+      await staffAuth.save();
 
       logger.info(`Staff registered: ${username} (${staffId}) by ${req.user.username}`);
 
@@ -250,8 +243,11 @@ router.post('/register', authenticateStaff, async (req: StaffAuthRequest, res: R
       });
 
     } catch (error) {
-      await runQuery('ROLLBACK');
-      throw error;
+      logger.error('Staff registration error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Server error during staff registration'
+      });
     }
 
   } catch (error) {
@@ -279,13 +275,7 @@ router.get('/me', authenticateStaff, async (req: StaffAuthRequest, res: Response
     const { staffId } = req.user;
 
     // Get staff details
-    const staff = await getRow(
-      `SELECT s.*, sa.username, sa.email_verified, sa.last_login, sa.two_factor_enabled
-       FROM staff s 
-       JOIN staff_auth sa ON s.staff_id = sa.staff_id
-       WHERE s.staff_id = ?`,
-      [staffId]
-    );
+    const staff = await StaffModel.findOne({ staffId });
 
     if (!staff) {
       res.status(404).json({
@@ -295,38 +285,38 @@ router.get('/me', authenticateStaff, async (req: StaffAuthRequest, res: Response
       return;
     }
 
-    // Get staff roles
-    const roles = await getRow(
-      `SELECT GROUP_CONCAT(sr.role_name) as roles 
-       FROM staff_role_assignments sra 
-       JOIN staff_roles sr ON sra.role_id = sr.role_id 
-       WHERE sra.staff_id = ? AND sra.is_active = 1 AND sr.is_active = 1`,
-      [staffId]
-    );
+    // Get staff authentication details
+    const staffAuth = await StaffAuthModel.findOne({ staffId });
 
-    const userRoles = roles?.roles ? roles.roles.split(',') : [];
+    if (!staffAuth) {
+      res.status(404).json({
+        success: false,
+        error: 'Staff authentication not found'
+      });
+      return;
+    }
 
     res.json({
       success: true,
       staff: {
-        staffId: staff.staff_id,
-        employeeId: staff.employee_id,
-        username: staff.username,
+        staffId: staff.staffId,
+        employeeId: staff.employeeId,
+        username: staffAuth.username,
         email: staff.email,
-        firstName: staff.first_name,
-        lastName: staff.last_name,
-        middleName: staff.middle_name,
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        middleName: staff.middleName,
         phone: staff.phone,
         department: staff.department,
         position: staff.position,
-        hireDate: staff.hire_date,
-        employmentType: staff.employment_type,
+        hireDate: staff.hireDate,
+        employmentType: staff.employmentType,
         status: staff.status,
-        emailVerified: staff.email_verified,
-        lastLogin: staff.last_login,
-        twoFactorEnabled: staff.two_factor_enabled,
-        roles: userRoles,
-        createdAt: staff.created_at
+        emailVerified: staffAuth.emailVerified,
+        lastLogin: staffAuth.lastLogin,
+        twoFactorEnabled: staffAuth.twoFactorEnabled,
+        roles: staffAuth.roles || [],
+        createdAt: staff.createdAt
       }
     });
 
@@ -366,10 +356,7 @@ router.put('/change-password', authenticateStaff, validatePasswordChange, async 
     const { authId } = req.user;
 
     // Get current staff authentication
-    const staffAuth = await getRow(
-      'SELECT password_hash FROM staff_auth WHERE auth_id = ?',
-      [authId]
-    );
+    const staffAuth = await StaffAuthModel.findOne({ authId });
 
     if (!staffAuth) {
       res.status(404).json({
@@ -380,7 +367,7 @@ router.put('/change-password', authenticateStaff, validatePasswordChange, async 
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, staffAuth.password_hash);
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, staffAuth.password);
     if (!isCurrentPasswordValid) {
       res.status(400).json({
         success: false,
@@ -394,9 +381,9 @@ router.put('/change-password', authenticateStaff, validatePasswordChange, async 
     const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password
-    await runQuery(
-      'UPDATE staff_auth SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE auth_id = ?',
-      [newPasswordHash, authId]
+    await StaffAuthModel.findOneAndUpdate(
+      { authId },
+      { password: newPasswordHash }
     );
 
     logger.info(`Password changed for staff: ${req.user.username} (${req.user.staffId})`);

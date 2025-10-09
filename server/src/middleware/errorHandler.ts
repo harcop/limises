@@ -44,15 +44,20 @@ export const errorHandler = (err: ErrorWithStatusCode, req: Request, res: Respon
     error = { message, statusCode: 401 };
   }
 
-  // SQLite errors
-  if (err.code === 'SQLITE_CONSTRAINT') {
-    const message = 'Database constraint violation';
-    error = { message, statusCode: 400 };
+  // MongoDB connection errors
+  if (err.name === 'MongoNetworkError') {
+    const message = 'Database connection error';
+    error = { message, statusCode: 503 };
   }
 
-  if (err.code === 'SQLITE_BUSY') {
-    const message = 'Database is busy, please try again';
+  if (err.name === 'MongoTimeoutError') {
+    const message = 'Database operation timeout';
     error = { message, statusCode: 503 };
+  }
+
+  if (err.name === 'MongoServerError') {
+    const message = 'Database server error';
+    error = { message, statusCode: 500 };
   }
 
   // Rate limiting errors

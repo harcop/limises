@@ -1,3 +1,5 @@
+import { logger } from '../../utils/logger';
+
 export abstract class BaseService {
   protected serviceName: string;
 
@@ -7,7 +9,7 @@ export abstract class BaseService {
 
   protected log(level: 'info' | 'error' | 'warn', message: string, data?: any): void {
     const logMessage = `[${this.serviceName}] ${message}`;
-    console.log(`[${level.toUpperCase()}] ${logMessage}`, data || '');
+    logger[level](logMessage, data || '');
   }
 
   protected handleError(error: any, context: string): never {

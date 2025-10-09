@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PatientModel, BillingAccountModel } from '../../models';
+import { PatientModel, BillingAccountModel } from '../../../models';
 import { 
   generatePatientId, 
   generateBillingAccountId, 
@@ -9,7 +9,7 @@ import {
   generateBillingAccountNumber 
 } from '../../../utils/helpers';
 import { logger } from '../../../utils/logger';
-import { AuthRequest, Patient, PatientInsurance } from '../../../types';
+import { AuthRequest } from '../../../types';
 
 export class PatientsController {
   // @route   POST /api/patients

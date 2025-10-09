@@ -2,10 +2,10 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
 import { generateToken } from '../middleware/auth';
-import { runQuery, getRow } from '../database/connection';
 import { generateId, generateStaffId, generatePatientId, sanitizeString } from '../utils/helpers';
 import { logger } from '../utils/logger';
 import { AuthRequest } from '../types';
+import { StaffModel, StaffAuthModel, PatientModel } from '../models';
 
 const router = express.Router();
 
@@ -44,62 +44,66 @@ router.post('/login', validateLogin, async (req: Request, res: Response): Promis
 
     const { username, password } = req.body;
 
-    // Get user from database
-    const user = await getRow(
-      `SELECT u.*, s.first_name, s.last_name, s.department, s.position, p.first_name as patient_first_name, p.last_name as patient_last_name
-       FROM users u 
-       LEFT JOIN staff s ON u.staff_id = s.staff_id 
-       LEFT JOIN patients p ON u.patient_id = p.patient_id
-       WHERE u.username = ? AND u.is_active = 1`,
-      [username]
-    );
+    // Try to find staff authentication first
+    let staffAuth = await StaffAuthModel.findOne({ 
+      username: username, 
+      isActive: true 
+    });
 
-    if (!user) {
-      res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-      return;
-    }
-
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-    if (!isPasswordValid) {
-      res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-      return;
-    }
-
-    // Get user roles
-    const roles = await getRow(
-      'SELECT GROUP_CONCAT(role_name) as roles FROM user_roles WHERE user_id = ?',
-      [user.user_id]
-    );
-
-    const userRoles = roles?.roles ? roles.roles.split(',') : [];
-
-    // Generate JWT token
-    const token = generateToken(user.user_id, userRoles);
-
-    logger.info(`User logged in: ${username} (${user.user_id})`);
-
-    res.json({
-      success: true,
-      message: 'Login successful',
-      token,
-      user: {
-        userId: user.user_id,
-        username: user.username,
-        email: user.email,
-        userType: user.staff_id ? 'staff' : 'patient',
-        firstName: user.first_name || user.patient_first_name,
-        lastName: user.last_name || user.patient_last_name,
-        department: user.department,
-        position: user.position,
-        roles: userRoles
+    if (staffAuth) {
+      // Check password
+      const isPasswordValid = await bcrypt.compare(password, staffAuth.password);
+      if (!isPasswordValid) {
+        res.status(401).json({
+          success: false,
+          error: 'Invalid credentials'
+        });
+        return;
       }
+
+      // Get staff details
+      const staff = await StaffModel.findOne({ 
+        staffId: staffAuth.staffId, 
+        status: 'active' 
+      });
+
+      if (!staff) {
+        res.status(401).json({
+          success: false,
+          error: 'Staff member not found or inactive'
+        });
+        return;
+      }
+
+      // Generate JWT token
+      const token = generateToken(staffAuth.authId, staffAuth.roles || []);
+
+      logger.info(`Staff logged in: ${username} (${staffAuth.authId})`);
+
+      res.json({
+        success: true,
+        message: 'Login successful',
+        token,
+        user: {
+          userId: staffAuth.authId,
+          username: staffAuth.username,
+          email: staffAuth.email,
+          userType: 'staff',
+          firstName: staff.firstName,
+          lastName: staff.lastName,
+          department: staff.department,
+          position: staff.position,
+          roles: staffAuth.roles || []
+        }
+      });
+      return;
+    }
+
+    // If not staff, try patient authentication (if implemented)
+    // For now, return error for non-staff users
+    res.status(401).json({
+      success: false,
+      error: 'Invalid credentials'
     });
 
   } catch (error) {
@@ -129,12 +133,11 @@ router.post('/register', validateRegister, async (req: Request, res: Response): 
     const { username, password, email, userType, ...additionalData } = req.body;
 
     // Check if user already exists
-    const existingUser = await getRow(
-      'SELECT user_id FROM users WHERE username = ? OR email = ?',
-      [username, email]
-    );
+    const existingStaffAuth = await StaffAuthModel.findOne({
+      $or: [{ username }, { email }]
+    });
 
-    if (existingUser) {
+    if (existingStaffAuth) {
       res.status(400).json({
         success: false,
         error: 'User with this username or email already exists'
@@ -146,109 +149,100 @@ router.post('/register', validateRegister, async (req: Request, res: Response): 
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Generate user ID
-    const userId = generateId('USER', 6);
-
-    // Start transaction
-    await runQuery('BEGIN TRANSACTION');
+    // Generate IDs
+    const staffId = generateStaffId();
+    const authId = generateId('AUTH', 6);
 
     try {
-      // Create user record
-      await runQuery(
-        'INSERT INTO users (user_id, username, password_hash, email, is_active, created_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)',
-        [userId, sanitizeString(username), passwordHash, sanitizeString(email)]
-      );
-
-      let staffId: string | null = null;
-      let patientId: string | null = null;
-
       if (userType === 'staff') {
         // Create staff record
-        staffId = generateStaffId();
-        await runQuery(
-          `INSERT INTO staff (
-            staff_id, user_id, first_name, last_name, email, department, position, 
-            hire_date, status, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, 'active', CURRENT_TIMESTAMP)`,
-          [
-            staffId,
-            userId,
-            sanitizeString(additionalData.firstName),
-            sanitizeString(additionalData.lastName),
-            sanitizeString(email),
-            sanitizeString(additionalData.department),
-            sanitizeString(additionalData.position)
-          ]
-        );
+        const staff = new StaffModel({
+          staffId,
+          employeeId: generateId('EMP', 6),
+          firstName: sanitizeString(additionalData.firstName),
+          lastName: sanitizeString(additionalData.lastName),
+          email: sanitizeString(email),
+          department: sanitizeString(additionalData.department),
+          position: sanitizeString(additionalData.position),
+          hireDate: new Date(),
+          employmentType: 'full_time',
+          status: 'active'
+        });
 
-        // Update user with staff_id
-        await runQuery(
-          'UPDATE users SET staff_id = ? WHERE user_id = ?',
-          [staffId, userId]
-        );
+        await staff.save();
 
-        // Assign default role
-        await runQuery(
-          'INSERT INTO user_roles (user_id, role_name, assigned_date) VALUES (?, ?, CURRENT_DATE)',
-          [userId, 'staff']
-        );
+        // Create staff authentication record
+        const staffAuth = new StaffAuthModel({
+          authId,
+          staffId,
+          username: sanitizeString(username),
+          email: sanitizeString(email),
+          password: passwordHash,
+          isActive: true,
+          roles: ['staff']
+        });
+
+        await staffAuth.save();
+
+        logger.info(`Staff registered: ${username} (${authId})`);
+
+        res.status(201).json({
+          success: true,
+          message: 'Staff registered successfully',
+          user: {
+            userId: authId,
+            username,
+            email,
+            userType: 'staff',
+            staffId
+          }
+        });
       } else if (userType === 'patient') {
         // Create patient record
-        patientId = generatePatientId();
-        await runQuery(
-          `INSERT INTO patients (
-            patient_id, user_id, first_name, last_name, date_of_birth, gender, 
-            phone, email, address, city, state, zip_code, status, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)`,
-          [
-            patientId,
-            userId,
-            sanitizeString(additionalData.firstName),
-            sanitizeString(additionalData.lastName),
-            additionalData.dateOfBirth,
-            additionalData.gender,
-            sanitizeString(additionalData.phone),
-            sanitizeString(email),
-            sanitizeString(additionalData.address),
-            sanitizeString(additionalData.city),
-            sanitizeString(additionalData.state),
-            sanitizeString(additionalData.zipCode)
-          ]
-        );
+        const patientId = generatePatientId();
+        const patient = new PatientModel({
+          patientId,
+          firstName: sanitizeString(additionalData.firstName),
+          lastName: sanitizeString(additionalData.lastName),
+          dateOfBirth: additionalData.dateOfBirth,
+          gender: additionalData.gender,
+          phone: sanitizeString(additionalData.phone),
+          email: sanitizeString(email),
+          address: sanitizeString(additionalData.address),
+          city: sanitizeString(additionalData.city),
+          state: sanitizeString(additionalData.state),
+          zipCode: sanitizeString(additionalData.zipCode),
+          status: 'active'
+        });
 
-        // Update user with patient_id
-        await runQuery(
-          'UPDATE users SET patient_id = ? WHERE user_id = ?',
-          [patientId, userId]
-        );
+        await patient.save();
 
-        // Assign patient role
-        await runQuery(
-          'INSERT INTO user_roles (user_id, role_name, assigned_date) VALUES (?, ?, CURRENT_DATE)',
-          [userId, 'patient']
-        );
+        logger.info(`Patient registered: ${username} (${patientId})`);
+
+        res.status(201).json({
+          success: true,
+          message: 'Patient registered successfully',
+          user: {
+            userId: patientId,
+            username,
+            email,
+            userType: 'patient',
+            patientId
+          }
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user type'
+        });
       }
 
-      await runQuery('COMMIT');
-
-      logger.info(`User registered: ${username} (${userId}) as ${userType}`);
-
-      res.status(201).json({
-        success: true,
-        message: 'User registered successfully',
-        user: {
-          userId,
-          username,
-          email,
-          userType,
-          staffId,
-          patientId
-        }
-      });
-
     } catch (error) {
-      await runQuery('ROLLBACK');
-      throw error;
+      logger.error('Registration error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Server error during registration'
+      });
     }
 
   } catch (error) {
@@ -275,18 +269,10 @@ router.get('/me', async (req: AuthRequest, res: Response): Promise<void> => {
 
     const { userId } = req.user;
 
-    // Get user details
-    const user = await getRow(
-      `SELECT u.*, s.first_name, s.last_name, s.department, s.position, s.phone as staff_phone,
-              p.first_name as patient_first_name, p.last_name as patient_last_name, p.phone as patient_phone
-       FROM users u 
-       LEFT JOIN staff s ON u.staff_id = s.staff_id 
-       LEFT JOIN patients p ON u.patient_id = p.patient_id
-       WHERE u.user_id = ?`,
-      [userId]
-    );
+    // Get staff authentication details
+    const staffAuth = await StaffAuthModel.findOne({ authId: userId });
 
-    if (!user) {
+    if (!staffAuth) {
       res.status(404).json({
         success: false,
         error: 'User not found'
@@ -294,29 +280,32 @@ router.get('/me', async (req: AuthRequest, res: Response): Promise<void> => {
       return;
     }
 
-    // Get user roles
-    const roles = await getRow(
-      'SELECT GROUP_CONCAT(role_name) as roles FROM user_roles WHERE user_id = ?',
-      [userId]
-    );
+    // Get staff details
+    const staff = await StaffModel.findOne({ staffId: staffAuth.staffId });
 
-    const userRoles = roles?.roles ? roles.roles.split(',') : [];
+    if (!staff) {
+      res.status(404).json({
+        success: false,
+        error: 'Staff member not found'
+      });
+      return;
+    }
 
     res.json({
       success: true,
       user: {
-        userId: user.user_id,
-        username: user.username,
-        email: user.email,
-        userType: user.staff_id ? 'staff' : 'patient',
-        firstName: user.first_name || user.patient_first_name,
-        lastName: user.last_name || user.patient_last_name,
-        phone: user.staff_phone || user.patient_phone,
-        department: user.department,
-        position: user.position,
-        roles: userRoles,
-        isActive: user.is_active,
-        createdAt: user.created_at
+        userId: staffAuth.authId,
+        username: staffAuth.username,
+        email: staffAuth.email,
+        userType: 'staff',
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        phone: staff.phone,
+        department: staff.department,
+        position: staff.position,
+        roles: staffAuth.roles || [],
+        isActive: staffAuth.isActive,
+        createdAt: staffAuth.createdAt
       }
     });
 
@@ -355,13 +344,10 @@ router.put('/change-password', validatePasswordChange, async (req: AuthRequest, 
     const { currentPassword, newPassword } = req.body;
     const { userId } = req.user;
 
-    // Get current user
-    const user = await getRow(
-      'SELECT password_hash FROM users WHERE user_id = ?',
-      [userId]
-    );
+    // Get current staff authentication
+    const staffAuth = await StaffAuthModel.findOne({ authId: userId });
 
-    if (!user) {
+    if (!staffAuth) {
       res.status(404).json({
         success: false,
         error: 'User not found'
@@ -370,7 +356,7 @@ router.put('/change-password', validatePasswordChange, async (req: AuthRequest, 
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, staffAuth.password);
     if (!isCurrentPasswordValid) {
       res.status(400).json({
         success: false,
@@ -384,9 +370,9 @@ router.put('/change-password', validatePasswordChange, async (req: AuthRequest, 
     const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password
-    await runQuery(
-      'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
-      [newPasswordHash, userId]
+    await StaffAuthModel.findOneAndUpdate(
+      { authId: userId },
+      { password: newPasswordHash }
     );
 
     logger.info(`Password changed for user: ${userId}`);
