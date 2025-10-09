@@ -1,4 +1,3 @@
-import { Router } from 'express';
 import { BaseModule } from '../base/Module';
 import { authenticate, authorize } from '../../middleware/auth';
 import { validateId, validatePagination, validateStaff } from '../../middleware/validation';

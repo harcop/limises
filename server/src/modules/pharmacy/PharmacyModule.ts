@@ -1,86 +1,81 @@
-import { Router } from 'express';
 import { BaseModule } from '../base/Module';
 import { authenticate, authorize } from '../../middleware/auth';
 import { validateId, validatePagination } from '../../middleware/validation';
 import { PharmacyController } from './controllers/PharmacyController';
 
 export class PharmacyModule extends BaseModule {
+  private controller: PharmacyController;
+
   constructor() {
     super('PharmacyModule');
+    this.controller = new PharmacyController();
   }
 
   protected initializeRoutes(): void {
     // Apply authentication to all routes
     this.router.use(authenticate);
 
-    // Health check endpoint
-    this.router.get('/health', (req, res) => {
-      res.json({
-        success: true,
-        message: 'Pharmacy module is active',
-        module: 'PharmacyModule',
-        timestamp: new Date().toISOString()
-      });
-    });
+    // Initialize health check
+    this.initializeHealthCheck();
 
     // Drug master routes
     this.router.post('/drugs', 
       authorize('admin', 'pharmacist'), 
-      PharmacyController.addDrug
+      this.controller.addDrug
     );
 
     this.router.get('/drugs', 
       authorize('receptionist', 'admin', 'doctor', 'nurse', 'pharmacist'), 
       validatePagination, 
-      PharmacyController.getDrugs
+      this.controller.getDrugs
     );
 
     this.router.get('/drugs/:drugId', 
       authorize('receptionist', 'admin', 'doctor', 'nurse', 'pharmacist'), 
       validateId, 
-      PharmacyController.getDrug
+      this.controller.getDrug
     );
 
     this.router.put('/drugs/:drugId', 
       authorize('admin', 'pharmacist'), 
       validateId, 
-      PharmacyController.updateDrug
+      this.controller.updateDrug
     );
 
     this.router.delete('/drugs/:drugId', 
       authorize('admin'), 
       validateId, 
-      PharmacyController.deactivateDrug
+      this.controller.deactivateDrug
     );
 
     // Inventory routes
     this.router.get('/inventory', 
       authorize('receptionist', 'admin', 'doctor', 'nurse', 'pharmacist'), 
       validatePagination, 
-      PharmacyController.getInventory
+      this.controller.getInventory
     );
 
     this.router.post('/inventory', 
       authorize('admin', 'pharmacist'), 
-      PharmacyController.addInventoryItem
+      this.controller.addInventoryItem
     );
 
     // Dispense routes
     this.router.get('/dispenses', 
       authorize('receptionist', 'admin', 'doctor', 'nurse', 'pharmacist'), 
       validatePagination, 
-      PharmacyController.getDispenses
+      this.controller.getDispenses
     );
 
     this.router.post('/dispenses', 
       authorize('pharmacist', 'admin'), 
-      PharmacyController.dispenseMedication
+      this.controller.dispenseMedication
     );
 
     // Statistics
     this.router.get('/stats', 
       authorize('receptionist', 'admin', 'doctor', 'nurse', 'pharmacist'), 
-      PharmacyController.getPharmacyStats
+      this.controller.getPharmacyStats
     );
 
     this.log('info', 'Pharmacy module routes initialized');

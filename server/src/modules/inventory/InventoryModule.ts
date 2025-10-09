@@ -1,8 +1,7 @@
-import { Router } from 'express';
 import { BaseModule } from '../base/Module';
 import { InventoryController } from './controllers/InventoryController';
-import { authenticate, authorize } from '../../../middleware/auth';
-import { validateId, validatePagination, validateDateRange } from '../../../middleware/validation';
+import { authenticate, authorize } from '../../middleware/auth';
+import { validateId, validatePagination, validateDateRange } from '../../middleware/validation';
 
 export class InventoryModule extends BaseModule {
   private controller: InventoryController;

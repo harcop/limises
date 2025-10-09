@@ -25,4 +25,15 @@ export abstract class BaseModule {
     const logMessage = `[${this.moduleName}] ${message}`;
     logger[level](logMessage, data || '');
   }
+
+  protected initializeHealthCheck(): void {
+    this.router.get('/health', (req, res) => {
+      res.json({
+        success: true,
+        message: `${this.moduleName} is active`,
+        module: this.moduleName,
+        timestamp: new Date().toISOString()
+      });
+    });
+  }
 }
