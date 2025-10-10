@@ -22,63 +22,77 @@ const LabOrderSchema = new Schema<ILabOrder>({
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Unique identifier for the laboratory order'
   },
   patientId: {
     type: String,
     required: true,
-    index: true
+    index: true,
+    description: 'Reference to the patient for this lab order'
   },
   staffId: {
     type: String,
     required: true,
-    index: true
+    index: true,
+    description: 'Reference to the healthcare provider who ordered the test'
   },
   appointmentId: {
     type: String,
-    index: true
+    index: true,
+    description: 'Reference to the appointment (if order is from an appointment)'
   },
   admissionId: {
     type: String,
-    index: true
+    index: true,
+    description: 'Reference to the admission (if order is from an inpatient stay)'
   },
   orderDate: {
     type: String,
-    required: true
+    required: true,
+    description: 'Date when the lab order was placed'
   },
   orderTime: {
     type: String,
-    required: true
+    required: true,
+    description: 'Time when the lab order was placed'
   },
   testType: {
     type: String,
-    required: true
+    required: true,
+    description: 'Type of laboratory test ordered'
   },
   testDescription: {
-    type: String
+    type: String,
+    description: 'Detailed description of the test'
   },
   priority: {
     type: String,
     enum: ['routine', 'urgent', 'stat'],
     required: true,
-    default: 'routine'
+    default: 'routine',
+    description: 'Priority level of the lab order'
   },
   status: {
     type: String,
     enum: ['ordered', 'collected', 'in_progress', 'completed', 'cancelled'],
     required: true,
-    default: 'ordered'
+    default: 'ordered',
+    description: 'Current status of the lab order'
   },
   notes: {
-    type: String
+    type: String,
+    description: 'Additional notes about the lab order'
   },
   createdAt: {
     type: String,
     required: true,
-    default: () => new Date().toISOString()
+    default: () => new Date().toISOString(),
+    description: 'Timestamp when the record was created'
   },
   updatedAt: {
-    type: String
+    type: String,
+    description: 'Timestamp when the record was last updated'
   }
 }, {
   timestamps: false,

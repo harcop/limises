@@ -45,89 +45,108 @@ const InventoryTransactionSchema = new Schema<IInventoryTransaction>({
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Unique identifier for the inventory transaction'
   },
   itemId: {
     type: String,
     required: true,
-    ref: 'InventoryItem'
+    ref: 'InventoryItem',
+    description: 'Reference to the inventory item being transacted'
   },
   transactionType: {
     type: String,
     required: true,
-    enum: ['receipt', 'issue', 'transfer', 'adjustment', 'return', 'waste', 'cycle_count']
+    enum: ['receipt', 'issue', 'transfer', 'adjustment', 'return', 'waste', 'cycle_count'],
+    description: 'Type of inventory transaction'
   },
   quantity: {
     type: Number,
-    required: true
+    required: true,
+    description: 'Quantity involved in the transaction (positive for receipts, negative for issues)'
   },
   unitCost: {
     type: Number,
-    min: 0
+    min: 0,
+    description: 'Cost per unit at the time of transaction'
   },
   totalCost: {
     type: Number,
-    min: 0
+    min: 0,
+    description: 'Total cost of the transaction (quantity × unit cost)'
   },
   
   // Location Information
   fromLocation: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Source location for transfers and issues'
   },
   toLocation: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Destination location for transfers and receipts'
   },
   
   // Reference Information
   referenceNumber: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Reference number (PO number, patient ID, etc.)'
   },
   referenceType: {
     type: String,
-    enum: ['purchase_order', 'patient', 'department', 'supplier', 'cycle_count']
+    enum: ['purchase_order', 'patient', 'department', 'supplier', 'cycle_count'],
+    description: 'Type of reference document'
   },
   
   // Batch/Lot Information
   batchNumber: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Batch number for batch-tracked items'
   },
   lotNumber: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Lot number for lot-tracked items'
   },
   serialNumber: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Serial number for serial-tracked items'
   },
   expirationDate: {
-    type: Date
+    type: Date,
+    description: 'Expiration date for the batch/lot'
   },
   
   // Transaction Details
   reason: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Reason for the transaction'
   },
   notes: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Additional notes about the transaction'
   },
   
   // Approval
   isApproved: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether the transaction has been approved'
   },
   approvedBy: {
     type: String,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Staff member who approved the transaction'
   },
   approvedAt: {
-    type: Date
+    type: Date,
+    description: 'Date and time when the transaction was approved'
   },
   
   // Status
@@ -135,14 +154,16 @@ const InventoryTransactionSchema = new Schema<IInventoryTransaction>({
     type: String,
     required: true,
     enum: ['pending', 'completed', 'cancelled'],
-    default: 'pending'
+    default: 'pending',
+    description: 'Current status of the transaction'
   },
   
   // Metadata
   createdBy: {
     type: String,
     required: true,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Staff member who created the transaction'
   }
 }, {
   timestamps: true,

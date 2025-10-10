@@ -53,39 +53,47 @@ export interface IPurchaseOrder extends Document {
 const PurchaseOrderItemSchema = new Schema<IPurchaseOrderItem>({
   itemId: {
     type: String,
-    required: true
+    required: true,
+    description: 'Unique identifier of the inventory item'
   },
   itemName: {
     type: String,
-    required: true
+    required: true,
+    description: 'Name of the inventory item'
   },
   itemCode: {
     type: String,
-    required: true
+    required: true,
+    description: 'Barcode or SKU code of the item'
   },
   quantity: {
     type: Number,
     required: true,
-    min: 1
+    min: 1,
+    description: 'Quantity ordered'
   },
   unitCost: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
+    description: 'Cost per unit'
   },
   totalCost: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
+    description: 'Total cost for this line item (quantity × unit cost)'
   },
   receivedQuantity: {
     type: Number,
     default: 0,
-    min: 0
+    min: 0,
+    description: 'Quantity received so far'
   },
   remainingQuantity: {
     type: Number,
-    min: 0
+    min: 0,
+    description: 'Quantity still pending receipt'
   }
 }, { _id: false });
 
@@ -94,35 +102,42 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>({
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Unique identifier for the purchase order'
   },
   orderNumber: {
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Human-readable order number'
   },
   supplierId: {
     type: String,
-    required: true
+    required: true,
+    description: 'Unique identifier of the supplier'
   },
   supplierName: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    description: 'Name of the supplier company'
   },
   
   // Order Details
   orderDate: {
     type: Date,
     required: true,
-    default: Date.now
+    default: Date.now,
+    description: 'Date when the order was placed'
   },
   expectedDeliveryDate: {
-    type: Date
+    type: Date,
+    description: 'Expected delivery date from supplier'
   },
   actualDeliveryDate: {
-    type: Date
+    type: Date,
+    description: 'Actual delivery date when received'
   },
   
   // Items
@@ -132,22 +147,26 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>({
   subtotal: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
+    description: 'Subtotal amount before tax and shipping'
   },
   taxAmount: {
     type: Number,
     default: 0,
-    min: 0
+    min: 0,
+    description: 'Tax amount on the order'
   },
   shippingCost: {
     type: Number,
     default: 0,
-    min: 0
+    min: 0,
+    description: 'Shipping and handling costs'
   },
   totalAmount: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
+    description: 'Total order amount including tax and shipping'
   },
   
   // Status
@@ -155,41 +174,49 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>({
     type: String,
     required: true,
     enum: ['draft', 'pending_approval', 'approved', 'ordered', 'partially_received', 'received', 'cancelled'],
-    default: 'draft'
+    default: 'draft',
+    description: 'Current status of the purchase order'
   },
   
   // Approval
   isApproved: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether the order has been approved'
   },
   approvedBy: {
     type: String,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Staff member who approved the order'
   },
   approvedAt: {
-    type: Date
+    type: Date,
+    description: 'Date and time when the order was approved'
   },
   
   // Notes
   notes: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Public notes visible to supplier'
   },
   internalNotes: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Internal notes for staff only'
   },
   
   // Metadata
   createdBy: {
     type: String,
     required: true,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Staff member who created the order'
   },
   updatedBy: {
     type: String,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Staff member who last updated the order'
   }
 }, {
   timestamps: true,

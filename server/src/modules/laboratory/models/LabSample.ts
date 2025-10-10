@@ -20,50 +20,62 @@ const LabSampleSchema = new Schema<ILabSample>({
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Unique identifier for the laboratory sample'
   },
   orderId: {
     type: String,
     required: true,
-    index: true
+    index: true,
+    description: 'Reference to the lab order this sample belongs to'
   },
   sampleType: {
     type: String,
-    required: true
+    required: true,
+    description: 'Type of sample (blood, urine, tissue, etc.)'
   },
   collectionDate: {
     type: String,
-    required: true
+    required: true,
+    description: 'Date when the sample was collected'
   },
   collectionTime: {
     type: String,
-    required: true
+    required: true,
+    description: 'Time when the sample was collected'
   },
   collectedBy: {
-    type: String
+    type: String,
+    description: 'Staff member who collected the sample'
   },
   sampleCondition: {
-    type: String
+    type: String,
+    description: 'Condition of the sample (good, hemolyzed, clotted, etc.)'
   },
   storageLocation: {
-    type: String
+    type: String,
+    description: 'Location where the sample is stored'
   },
   status: {
     type: String,
     enum: ['collected', 'processed', 'stored', 'disposed'],
     required: true,
-    default: 'collected'
+    default: 'collected',
+    description: 'Current status of the sample'
   },
   notes: {
-    type: String
+    type: String,
+    description: 'Additional notes about the sample'
   },
   createdAt: {
     type: String,
     required: true,
-    default: () => new Date().toISOString()
+    default: () => new Date().toISOString(),
+    description: 'Timestamp when the record was created'
   },
   updatedAt: {
-    type: String
+    type: String,
+    description: 'Timestamp when the record was last updated'
   }
 }, {
   timestamps: false,

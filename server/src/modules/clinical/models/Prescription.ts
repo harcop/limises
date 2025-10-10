@@ -8,65 +8,80 @@ const PrescriptionSchema = new Schema<IPrescription>({
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Unique identifier for the prescription'
   },
   patientId: {
     type: String,
     required: true,
-    ref: 'Patient'
+    ref: 'Patient',
+    description: 'Reference to the patient this prescription is for'
   },
   staffId: {
     type: String,
     required: true,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Reference to the healthcare provider who prescribed the medication'
   },
   drugId: {
     type: String,
     required: true,
-    ref: 'DrugMaster'
+    ref: 'DrugMaster',
+    description: 'Reference to the drug in the drug master database'
   },
   dosage: {
     type: String,
-    required: true
+    required: true,
+    description: 'Dosage amount and unit (e.g., 500mg, 1 tablet)'
   },
   frequency: {
     type: String,
-    required: true
+    required: true,
+    description: 'How often to take the medication (e.g., twice daily, every 8 hours)'
   },
   duration: {
     type: String,
-    required: true
+    required: true,
+    description: 'How long to take the medication (e.g., 7 days, until finished)'
   },
   quantity: {
     type: Number,
-    required: true
+    required: true,
+    description: 'Total quantity prescribed'
   },
   refillsAllowed: {
     type: Number,
-    default: 0
+    default: 0,
+    description: 'Number of refills allowed for this prescription'
   },
   refillsUsed: {
     type: Number,
-    default: 0
+    default: 0,
+    description: 'Number of refills already used'
   },
   instructions: {
-    type: String
+    type: String,
+    description: 'Special instructions for taking the medication'
   },
   prescribedAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
+    description: 'Date and time when the prescription was written'
   },
   isActive: {
     type: Boolean,
-    default: true
+    default: true,
+    description: 'Whether the prescription is currently active'
   },
   status: {
     type: String,
     enum: ['active', 'completed', 'cancelled', 'expired'],
-    default: 'active'
+    default: 'active',
+    description: 'Current status of the prescription'
   },
   expiryDate: {
-    type: Date
+    type: Date,
+    description: 'Date when the prescription expires'
   }
 }, {
   timestamps: true,

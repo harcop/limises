@@ -8,73 +8,118 @@ const ClinicalNoteSchema = new Schema<IClinicalNote>({
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Unique identifier for the clinical note'
   },
   patientId: {
     type: String,
     required: true,
-    ref: 'Patient'
+    ref: 'Patient',
+    description: 'Reference to the patient this note belongs to'
   },
   staffId: {
     type: String,
     required: true,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Reference to the healthcare provider who wrote the note'
   },
   appointmentId: {
     type: String,
-    ref: 'Appointment'
+    ref: 'Appointment',
+    description: 'Reference to the appointment (if note is from an appointment)'
   },
   admissionId: {
     type: String,
-    ref: 'IPDAdmission'
+    ref: 'IPDAdmission',
+    description: 'Reference to the admission (if note is from an inpatient stay)'
   },
   noteType: {
     type: String,
     required: true,
-    enum: ['consultation', 'progress', 'discharge', 'procedure', 'emergency']
+    enum: ['consultation', 'progress', 'discharge', 'procedure', 'emergency'],
+    description: 'Type of clinical note'
   },
   chiefComplaint: {
-    type: String
+    type: String,
+    description: 'Primary reason for the patient visit'
   },
   historyOfPresentIllness: {
-    type: String
+    type: String,
+    description: 'Detailed history of the current illness or condition'
   },
   physicalExamination: {
-    type: String
+    type: String,
+    description: 'Findings from the physical examination'
   },
   assessment: {
-    type: String
+    type: String,
+    description: 'Clinical assessment and diagnosis'
   },
   plan: {
-    type: String
+    type: String,
+    description: 'Treatment plan and follow-up instructions'
   },
   vitalSigns: {
-    bloodPressure: String,
-    heartRate: Number,
-    temperature: Number,
-    respiratoryRate: Number,
-    oxygenSaturation: Number,
-    weight: Number,
-    height: Number
+    bloodPressure: {
+      type: String,
+      description: 'Blood pressure reading (e.g., 120/80)'
+    },
+    heartRate: {
+      type: Number,
+      description: 'Heart rate in beats per minute'
+    },
+    temperature: {
+      type: Number,
+      description: 'Body temperature in degrees'
+    },
+    respiratoryRate: {
+      type: Number,
+      description: 'Respiratory rate in breaths per minute'
+    },
+    oxygenSaturation: {
+      type: Number,
+      description: 'Oxygen saturation percentage'
+    },
+    weight: {
+      type: Number,
+      description: 'Patient weight in appropriate units'
+    },
+    height: {
+      type: Number,
+      description: 'Patient height in appropriate units'
+    }
   },
   isSigned: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether the note has been electronically signed'
   },
   signedBy: {
     type: String,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Staff member who signed the note'
   },
   signedAt: {
-    type: Date
+    type: Date,
+    description: 'Date and time when the note was signed'
   },
   attachments: [{
-    fileName: String,
-    fileUrl: String,
-    fileType: String,
+    fileName: {
+      type: String,
+      description: 'Name of the attached file'
+    },
+    fileUrl: {
+      type: String,
+      description: 'URL or path to the attached file'
+    },
+    fileType: {
+      type: String,
+      description: 'Type of the attached file (e.g., image, document)'
+    },
     uploadedAt: {
       type: Date,
-      default: Date.now
+      default: Date.now,
+      description: 'Date and time when the file was uploaded'
     }
   }]
 }, {

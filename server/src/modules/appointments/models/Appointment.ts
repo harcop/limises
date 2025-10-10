@@ -8,55 +8,68 @@ const AppointmentSchema = new Schema<IAppointment>({
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Unique identifier for the appointment'
   },
   patientId: {
     type: String,
     required: true,
-    ref: 'Patient'
+    ref: 'Patient',
+    description: 'Reference to the patient for this appointment'
   },
   staffId: {
     type: String,
     required: true,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Reference to the healthcare provider for this appointment'
   },
   appointmentDate: {
     type: Date,
-    required: true
+    required: true,
+    description: 'Date of the appointment'
   },
   appointmentTime: {
     type: String,
-    required: true
+    required: true,
+    description: 'Time of the appointment (HH:MM format)'
   },
   appointmentType: {
     type: String,
     required: true,
-    enum: ['consultation', 'follow_up', 'procedure', 'emergency']
+    enum: ['consultation', 'follow_up', 'procedure', 'emergency'],
+    description: 'Type of appointment'
   },
   status: {
     type: String,
     enum: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'],
-    default: 'scheduled'
+    default: 'scheduled',
+    description: 'Current status of the appointment'
   },
   duration: {
     type: Number,
-    default: 30 // minutes
+    default: 30,
+    description: 'Duration of the appointment in minutes'
   },
   notes: {
-    type: String
+    type: String,
+    description: 'Additional notes about the appointment'
   },
   roomNumber: {
-    type: String
+    type: String,
+    description: 'Room number where the appointment will take place'
   },
   reason: {
-    type: String
+    type: String,
+    description: 'Reason for the appointment or chief complaint'
   },
   followUpRequired: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether a follow-up appointment is required'
   },
   followUpDate: {
-    type: Date
+    type: Date,
+    description: 'Suggested date for follow-up appointment'
   }
 }, {
   timestamps: true,

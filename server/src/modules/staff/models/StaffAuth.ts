@@ -8,63 +8,77 @@ const StaffAuthSchema = new Schema<IStaffAuth>({
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Unique identifier for the authentication record'
   },
   staffId: {
     type: String,
     required: true,
     unique: true,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Reference to the staff member this auth record belongs to'
   },
   email: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    description: 'Email address used for authentication'
   },
   username: {
     type: String,
     required: true,
     unique: true,
-    trim: true
+    trim: true,
+    description: 'Unique username for login'
   },
   password: {
     type: String,
-    required: true
+    required: true,
+    description: 'Hashed password for authentication'
   },
   isActive: {
     type: Boolean,
-    default: true
+    default: true,
+    description: 'Whether the authentication account is active'
   },
   emailVerified: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether the email address has been verified'
   },
   lastLogin: {
-    type: Date
+    type: Date,
+    description: 'Timestamp of the last successful login'
   },
   failedLoginAttempts: {
     type: Number,
-    default: 0
+    default: 0,
+    description: 'Number of consecutive failed login attempts'
   },
   lockedUntil: {
-    type: Date
+    type: Date,
+    description: 'Timestamp until which the account is locked due to failed attempts'
   },
   twoFactorEnabled: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether two-factor authentication is enabled'
   },
   twoFactorSecret: {
-    type: String
+    type: String,
+    description: 'Secret key for two-factor authentication'
   },
   roles: [{
     type: String,
-    ref: 'StaffRole'
+    ref: 'StaffRole',
+    description: 'Array of role references assigned to this staff member'
   }],
   permissions: [{
     type: String,
-    ref: 'Permission'
+    ref: 'Permission',
+    description: 'Array of permission references assigned to this staff member'
   }]
 }, {
   timestamps: true,

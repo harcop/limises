@@ -8,57 +8,72 @@ const DrugMasterSchema = new Schema<IDrugMaster>({
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Unique identifier for the drug'
   },
   drugName: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    description: 'Brand name of the drug'
   },
   genericName: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Generic name of the drug'
   },
   drugClass: {
-    type: String
+    type: String,
+    description: 'Therapeutic class or category of the drug'
   },
   dosageForm: {
-    type: String
+    type: String,
+    description: 'Form of the drug (tablet, capsule, liquid, injection, etc.)'
   },
   strength: {
-    type: String
+    type: String,
+    description: 'Strength or concentration of the drug'
   },
   manufacturer: {
-    type: String
+    type: String,
+    description: 'Name of the pharmaceutical manufacturer'
   },
   ndcNumber: {
     type: String,
     unique: true,
-    sparse: true
+    sparse: true,
+    description: 'National Drug Code number for the drug'
   },
   isControlled: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether this is a controlled substance'
   },
   controlledSchedule: {
     type: String,
-    enum: ['I', 'II', 'III', 'IV', 'V']
+    enum: ['I', 'II', 'III', 'IV', 'V'],
+    description: 'DEA controlled substance schedule (I-V)'
   },
   isActive: {
     type: Boolean,
-    default: true
+    default: true,
+    description: 'Whether the drug is currently available for prescription'
   },
   description: {
-    type: String
+    type: String,
+    description: 'General description of the drug and its uses'
   },
   sideEffects: [{
-    type: String
+    type: String,
+    description: 'List of known side effects'
   }],
   contraindications: [{
-    type: String
+    type: String,
+    description: 'List of conditions where the drug should not be used'
   }],
   interactions: [{
-    type: String
+    type: String,
+    description: 'List of drug interactions'
   }]
 }, {
   timestamps: true,

@@ -59,52 +59,63 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Unique identifier for the inventory item'
   },
   itemName: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    description: 'Name of the inventory item'
   },
   itemCode: {
     type: String,
     required: true,
     unique: true,
-    index: true
+    index: true,
+    description: 'Barcode or SKU code for the item'
   },
   category: {
     type: String,
     required: true,
-    enum: ['medication', 'supplies', 'equipment', 'consumables', 'other']
+    enum: ['medication', 'supplies', 'equipment', 'consumables', 'other'],
+    description: 'Category classification of the inventory item'
   },
   subcategory: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Subcategory for more specific classification'
   },
   description: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Detailed description of the item'
   },
   brand: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Brand or manufacturer of the item'
   },
   model: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Model number or version of the item'
   },
   unitOfMeasure: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    description: 'Unit of measurement (pieces, boxes, liters, etc.)'
   },
   size: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Size specification of the item'
   },
   color: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Color of the item'
   },
   
   // Stock Information
@@ -112,67 +123,79 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
     type: Number,
     required: true,
     default: 0,
-    min: 0
+    min: 0,
+    description: 'Current quantity in stock'
   },
   minimumStock: {
     type: Number,
     required: true,
     default: 0,
-    min: 0
+    min: 0,
+    description: 'Minimum stock level to maintain'
   },
   maximumStock: {
     type: Number,
     required: true,
     default: 1000,
-    min: 0
+    min: 0,
+    description: 'Maximum stock level allowed'
   },
   reorderPoint: {
     type: Number,
     required: true,
     default: 10,
-    min: 0
+    min: 0,
+    description: 'Stock level at which to trigger reorder'
   },
   reorderQuantity: {
     type: Number,
     required: true,
     default: 50,
-    min: 0
+    min: 0,
+    description: 'Quantity to order when reorder point is reached'
   },
   
   // Pricing
   unitCost: {
     type: Number,
     required: true,
-    min: 0
+    min: 0,
+    description: 'Cost per unit of the item'
   },
   sellingPrice: {
     type: Number,
-    min: 0
+    min: 0,
+    description: 'Selling price per unit (if applicable)'
   },
   
   // Tracking
   batchTracking: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether batch tracking is required for this item'
   },
   expirationTracking: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether expiration date tracking is required'
   },
   serialNumberTracking: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether serial number tracking is required'
   },
   
   // Location
   primaryLocation: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    description: 'Primary storage location for the item'
   },
   secondaryLocations: [{
     type: String,
-    trim: true
+    trim: true,
+    description: 'Additional storage locations'
   }],
   
   // Status
@@ -180,49 +203,59 @@ const InventoryItemSchema = new Schema<IInventoryItem>({
     type: String,
     required: true,
     enum: ['active', 'inactive', 'discontinued'],
-    default: 'active'
+    default: 'active',
+    description: 'Current status of the inventory item'
   },
   isControlled: {
     type: Boolean,
-    default: false
+    default: false,
+    description: 'Whether this is a controlled substance'
   },
   
   // Supplier Information
   primarySupplier: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Primary supplier for this item'
   },
   alternativeSuppliers: [{
     type: String,
-    trim: true
+    trim: true,
+    description: 'Alternative suppliers for this item'
   }],
   
   // Regulatory
   fdaApprovalNumber: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'FDA approval number (for medications)'
   },
   ndcNumber: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'National Drug Code number'
   },
   lotNumber: {
     type: String,
-    trim: true
+    trim: true,
+    description: 'Current lot number'
   },
   expirationDate: {
-    type: Date
+    type: Date,
+    description: 'Expiration date of current lot'
   },
   
   // Metadata
   createdBy: {
     type: String,
     required: true,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Staff member who created this record'
   },
   updatedBy: {
     type: String,
-    ref: 'Staff'
+    ref: 'Staff',
+    description: 'Staff member who last updated this record'
   }
 }, {
   timestamps: true,
