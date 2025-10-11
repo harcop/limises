@@ -13,183 +13,188 @@ export class ClinicalController extends BaseController {
 
   // Clinical note routes
   createClinicalNote = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handleAsyncOperation(
-      res,
-      async () => {
-        const noteData = req.body;
-        return await this.service.createClinicalNote(noteData);
-      },
-      'Clinical note created successfully',
-      'Failed to create clinical note',
-      201
-    );
+    try {
+      const noteData = req.body;
+      const result = await this.service.createClinicalNote(noteData);
+      this.sendSuccessResponse(res, result, 'Clinical note created successfully', 201);
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to create clinical note', statusCode);
+    }
   };
 
   getClinicalNotes = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handlePaginatedOperation(
-      res,
-      async () => {
-        const filters = {
-          patientId: req.query['patientId'] as string,
-          appointmentId: req.query['appointmentId'] as string,
-          noteType: req.query['noteType'] as string,
-          isSigned: req.query['isSigned'] === 'true' ? true : req.query['isSigned'] === 'false' ? false : undefined,
-          status: req.query['status'] as string
-        };
+    try {
+      const filters = {
+        patientId: req.query['patientId'] as string,
+        appointmentId: req.query['appointmentId'] as string,
+        noteType: req.query['noteType'] as string,
+        isSigned: req.query['isSigned'] === 'true' ? true : req.query['isSigned'] === 'false' ? false : undefined,
+        status: req.query['status'] as string
+      };
 
-        const pagination = {
-          page: parseInt(req.query['page'] as string) || 1,
-          limit: parseInt(req.query['limit'] as string) || 20
-        };
+      const pagination = {
+        page: parseInt(req.query['page'] as string) || 1,
+        limit: parseInt(req.query['limit'] as string) || 20
+      };
 
-        return await this.service.getClinicalNotes(filters, pagination);
-      },
-      'Clinical notes retrieved successfully'
-    );
+      const result = await this.service.getClinicalNotes(filters, pagination);
+      res.json({
+        success: true,
+        message: 'Clinical notes retrieved successfully',
+        data: result.notes,
+        pagination: result.pagination
+      });
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to retrieve clinical notes', statusCode);
+    }
   };
 
   getClinicalNote = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handleAsyncOperation(
-      res,
-      async () => {
-        const { noteId } = req.params;
-        if (!noteId) {
-          throw new Error('Note ID is required');
-        }
-        return await this.service.getClinicalNote(noteId);
-      },
-      'Clinical note retrieved successfully',
-      'Failed to retrieve clinical note'
-    );
+    try {
+      const { noteId } = req.params;
+      if (!noteId) {
+        throw new Error('Note ID is required');
+      }
+      const result = await this.service.getClinicalNote(noteId);
+      this.sendSuccessResponse(res, result, 'Clinical note retrieved successfully');
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to retrieve clinical note', statusCode);
+    }
   };
 
   updateClinicalNote = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handleAsyncOperation(
-      res,
-      async () => {
-        const { noteId } = req.params;
-        if (!noteId) {
-          throw new Error('Note ID is required');
-        }
-        const updateData = req.body;
-        return await this.service.updateClinicalNote(noteId, updateData);
-      },
-      'Clinical note updated successfully',
-      'Failed to update clinical note'
-    );
+    try {
+      const { noteId } = req.params;
+      if (!noteId) {
+        throw new Error('Note ID is required');
+      }
+      const updateData = req.body;
+      const result = await this.service.updateClinicalNote(noteId, updateData);
+      this.sendSuccessResponse(res, result, 'Clinical note updated successfully');
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to update clinical note', statusCode);
+    }
   };
 
   signClinicalNote = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handleAsyncOperation(
-      res,
-      async () => {
-        const { noteId } = req.params;
-        if (!noteId) {
-          throw new Error('Note ID is required');
-        }
-        const signedBy = req.user?.staffId || 'unknown';
-        return await this.service.signClinicalNote(noteId, signedBy);
-      },
-      'Clinical note signed successfully',
-      'Failed to sign clinical note'
-    );
+    try {
+      const { noteId } = req.params;
+      if (!noteId) {
+        throw new Error('Note ID is required');
+      }
+      const signedBy = req.user?.staffId || 'unknown';
+      const result = await this.service.signClinicalNote(noteId, signedBy);
+      this.sendSuccessResponse(res, result, 'Clinical note signed successfully');
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to sign clinical note', statusCode);
+    }
   };
 
   // Prescription routes
   createPrescription = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handleAsyncOperation(
-      res,
-      async () => {
-        const prescriptionData = req.body;
-        return await this.service.createPrescription(prescriptionData);
-      },
-      'Prescription created successfully',
-      'Failed to create prescription',
-      201
-    );
+    try {
+      const prescriptionData = req.body;
+      const result = await this.service.createPrescription(prescriptionData);
+      this.sendSuccessResponse(res, result, 'Prescription created successfully', 201);
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to create prescription', statusCode);
+    }
   };
 
   getPrescriptions = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handlePaginatedOperation(
-      res,
-      async () => {
-        const filters = {
-          patientId: req.query['patientId'] as string,
-          appointmentId: req.query['appointmentId'] as string,
-          prescribedBy: req.query['prescribedBy'] as string,
-          status: req.query['status'] as string
-        };
+    try {
+      const filters = {
+        patientId: req.query['patientId'] as string,
+        appointmentId: req.query['appointmentId'] as string,
+        prescribedBy: req.query['prescribedBy'] as string,
+        status: req.query['status'] as string
+      };
 
-        const pagination = {
-          page: parseInt(req.query['page'] as string) || 1,
-          limit: parseInt(req.query['limit'] as string) || 20
-        };
+      const pagination = {
+        page: parseInt(req.query['page'] as string) || 1,
+        limit: parseInt(req.query['limit'] as string) || 20
+      };
 
-        return await this.service.getPrescriptions(filters, pagination);
-      },
-      'Prescriptions retrieved successfully'
-    );
+      const result = await this.service.getPrescriptions(filters, pagination);
+      res.json({
+        success: true,
+        message: 'Prescriptions retrieved successfully',
+        data: result.prescriptions,
+        pagination: result.pagination
+      });
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to retrieve prescriptions', statusCode);
+    }
   };
 
   getPrescription = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handleAsyncOperation(
-      res,
-      async () => {
-        const { prescriptionId } = req.params;
-        if (!prescriptionId) {
-          throw new Error('Prescription ID is required');
-        }
-        return await this.service.getPrescription(prescriptionId);
-      },
-      'Prescription retrieved successfully',
-      'Failed to retrieve prescription'
-    );
+    try {
+      const { prescriptionId } = req.params;
+      if (!prescriptionId) {
+        throw new Error('Prescription ID is required');
+      }
+      const result = await this.service.getPrescription(prescriptionId);
+      this.sendSuccessResponse(res, result, 'Prescription retrieved successfully');
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to retrieve prescription', statusCode);
+    }
   };
 
   updatePrescription = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handleAsyncOperation(
-      res,
-      async () => {
-        const { prescriptionId } = req.params;
-        if (!prescriptionId) {
-          throw new Error('Prescription ID is required');
-        }
-        const updateData = req.body;
-        return await this.service.updatePrescription(prescriptionId, updateData);
-      },
-      'Prescription updated successfully',
-      'Failed to update prescription'
-    );
+    try {
+      const { prescriptionId } = req.params;
+      if (!prescriptionId) {
+        throw new Error('Prescription ID is required');
+      }
+      const updateData = req.body;
+      const result = await this.service.updatePrescription(prescriptionId, updateData);
+      this.sendSuccessResponse(res, result, 'Prescription updated successfully');
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to update prescription', statusCode);
+    }
   };
 
   // Drug master routes
   getDrugs = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handlePaginatedOperation(
-      res,
-      async () => {
-        const pagination = {
-          page: parseInt(req.query['page'] as string) || 1,
-          limit: parseInt(req.query['limit'] as string) || 20
-        };
+    try {
+      const pagination = {
+        page: parseInt(req.query['page'] as string) || 1,
+        limit: parseInt(req.query['limit'] as string) || 20
+      };
 
-        return await this.service.getDrugs(pagination);
-      },
-      'Drugs retrieved successfully'
-    );
+      const result = await this.service.getDrugs(pagination);
+      res.json({
+        success: true,
+        message: 'Drugs retrieved successfully',
+        data: result.drugs,
+        pagination: result.pagination
+      });
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to retrieve drugs', statusCode);
+    }
   };
 
   getDrug = async (req: AuthRequest, res: Response): Promise<void> => {
-    await this.handleAsyncOperation(
-      res,
-      async () => {
-        const { drugId } = req.params;
-        if (!drugId) {
-          throw new Error('Drug ID is required');
-        }
-        return await this.service.getDrug(drugId);
-      },
-      'Drug retrieved successfully',
-      'Failed to retrieve drug'
-    );
+    try {
+      const { drugId } = req.params;
+      if (!drugId) {
+        throw new Error('Drug ID is required');
+      }
+      const result = await this.service.getDrug(drugId);
+      this.sendSuccessResponse(res, result, 'Drug retrieved successfully');
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to retrieve drug', statusCode);
+    }
   };
 }

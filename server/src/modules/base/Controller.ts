@@ -103,51 +103,11 @@ export abstract class BaseController {
     });
   }
 
-  /**
-   * Handle async operations with standard error handling
-   */
-  protected async handleAsyncOperation<T>(
-    res: Response,
-    operation: () => Promise<T>,
-    successMessage: string = 'Operation completed successfully',
-    errorMessage: string = 'Operation failed',
-    successStatusCode: number = 200
-  ): Promise<void> {
-    try {
-      const result = await operation();
-      this.sendSuccessResponse(res, result, successMessage, successStatusCode);
-    } catch (error: any) {
-      const statusCode = this.getErrorStatusCode(error);
-      this.sendErrorResponse(res, error, errorMessage, statusCode);
-    }
-  }
-
-  /**
-   * Handle async operations that return paginated results
-   */
-  protected async handlePaginatedOperation<T>(
-    res: Response,
-    operation: () => Promise<{ data: T[]; pagination: any }>,
-    successMessage: string = 'Data retrieved successfully'
-  ): Promise<void> {
-    try {
-      const result = await operation();
-      res.json({
-        success: true,
-        message: successMessage,
-        data: result.data,
-        pagination: result.pagination
-      });
-    } catch (error: any) {
-      const statusCode = this.getErrorStatusCode(error);
-      this.sendErrorResponse(res, error, 'Failed to retrieve data', statusCode);
-    }
-  }
 
   /**
    * Get appropriate status code based on error type
    */
-  private getErrorStatusCode(error: any): number {
+  protected getErrorStatusCode(error: any): number {
     if (error.message?.includes('not found')) {
       return 404;
     }

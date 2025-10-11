@@ -5,58 +5,81 @@ import { AuthRequest } from '../../../types';
 // Note: Validation middleware imports removed as they're not used in this controller
 
 export class InventoryController extends BaseController {
+  private service: InventoryService;
+
   constructor() {
-    super(new InventoryService(), 'InventoryController');
+    super('InventoryController');
+    this.service = new InventoryService();
   }
 
   // Item Management
-  createItem = this.handleAsync(async (req: AuthRequest, res: Response) => {
-    const itemData = req.body;
-    itemData.createdBy = req.user.staffId;
-    
-    const item = await this.service.createItem(itemData);
-    
-    this.sendSuccess(res, {
-      itemId: item.itemId,
-      itemName: item.itemName,
-      itemCode: item.itemCode,
-      category: item.category,
-      currentStock: item.currentStock,
-      status: item.status,
-      createdAt: item.createdAt.toISOString()
-    }, 'Inventory item created successfully', 201);
-  });
-
-  getItems = this.handleAsync(async (req: AuthRequest, res: Response) => {
-    const filters = {
-      category: req.query.category,
-      subcategory: req.query.subcategory,
-      status: req.query.status,
-      location: req.query.location,
-      lowStock: req.query.lowStock === 'true',
-      search: req.query.search
-    };
-
-    const pagination = {
-      page: parseInt(req.query.page as string) || 1,
-      limit: parseInt(req.query.limit as string) || 20
-    };
-
-    const result = await this.service.getItems(filters, pagination);
-    this.sendSuccess(res, result);
-  });
-
-  getItemById = this.handleAsync(async (req: AuthRequest, res: Response) => {
-    const { itemId } = req.params;
-    const item = await this.service.getItemById(itemId);
-    
-    if (!item) {
-      this.sendError(res, 'Inventory item not found', 404);
-      return;
+  createItem = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const itemData = req.body;
+      itemData.createdBy = req.user.staffId;
+      
+      const item = await this.service.createItem(itemData);
+      
+      this.sendSuccessResponse(res, {
+        itemId: item.itemId,
+        itemName: item.itemName,
+        itemCode: item.itemCode,
+        category: item.category,
+        currentStock: item.currentStock,
+        status: item.status,
+        createdAt: item.createdAt.toISOString()
+      }, 'Inventory item created successfully', 201);
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to create inventory item', statusCode);
     }
+  };
 
-    this.sendSuccess(res, { item });
-  });
+  getItems = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const filters = {
+        category: req.query.category,
+        subcategory: req.query.subcategory,
+        status: req.query.status,
+        location: req.query.location,
+        lowStock: req.query.lowStock === 'true',
+        search: req.query.search
+      };
+
+      const pagination = {
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 20
+      };
+
+      const result = await this.service.getItems(filters, pagination);
+      res.json({
+        success: true,
+        message: 'Items retrieved successfully',
+        data: result.items,
+        pagination: result.pagination
+      });
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to retrieve items', statusCode);
+    }
+  };
+
+  getItemById = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { itemId } = req.params;
+      const item = await this.service.getItemById(itemId);
+      
+      if (!item) {
+        this.sendErrorResponse(res, 'Inventory item not found', 'Inventory item not found', 404);
+        return;
+      }
+
+      this.sendSuccessResponse(res, { item }, 'Item retrieved successfully');
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to retrieve item', statusCode);
+    }
+  };
 
   updateItem = this.handleAsync(async (req: AuthRequest, res: Response) => {
     const { itemId } = req.params;

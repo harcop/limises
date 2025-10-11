@@ -16,61 +16,58 @@ export class HRController extends BaseController {
   // ==============================================
 
   createEmployeeRecord = async (req: Request, res: Response): Promise<void> => {
-    await this.handleAsyncOperation(
-      res,
-      async () => {
-        const employeeData = req.body;
-        return await this.hrService.createEmployeeRecord(employeeData);
-      },
-      'Employee record created successfully',
-      'Failed to create employee record',
-      201
-    );
+    try {
+      const employeeData = req.body;
+      const result = await this.hrService.createEmployeeRecord(employeeData);
+      this.sendSuccessResponse(res, result, 'Employee record created successfully', 201);
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to create employee record', statusCode);
+    }
   };
 
   getEmployeeRecords = async (req: Request, res: Response): Promise<void> => {
-    await this.handlePaginatedOperation(
-      res,
-      async () => {
-        const { page = 1, limit = 10, department, employmentType, status, managerId } = req.query;
-        
-        const filters: Record<string, string> = {};
-        if (department) filters.department = department as string;
-        if (employmentType) filters.employmentType = employmentType as string;
-        if (status) filters.status = status as string;
-        if (managerId) filters.managerId = managerId as string;
+    try {
+      const { page = 1, limit = 10, department, employmentType, status, managerId } = req.query;
+      
+      const filters: Record<string, string> = {};
+      if (department) filters.department = department as string;
+      if (employmentType) filters.employmentType = employmentType as string;
+      if (status) filters.status = status as string;
+      if (managerId) filters.managerId = managerId as string;
 
-        const result = await this.hrService.getEmployeeRecords(
-          filters,
-          parseInt(page as string),
-          parseInt(limit as string)
-        );
+      const result = await this.hrService.getEmployeeRecords(
+        filters,
+        parseInt(page as string),
+        parseInt(limit as string)
+      );
 
-        return {
-          data: result.employees,
-          pagination: result.pagination
-        };
-      },
-      'Employee records retrieved successfully'
-    );
+      res.json({
+        success: true,
+        message: 'Employee records retrieved successfully',
+        data: result.employees,
+        pagination: result.pagination
+      });
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to retrieve employee records', statusCode);
+    }
   };
 
   getEmployeeRecordById = async (req: Request, res: Response): Promise<void> => {
-    await this.handleAsyncOperation(
-      res,
-      async () => {
-        const { employeeId } = req.params;
-        const employee = await this.hrService.getEmployeeRecordById(employeeId);
-        
-        if (!employee) {
-          throw new NotFoundError('Employee record', employeeId);
-        }
-        
-        return employee;
-      },
-      'Employee record retrieved successfully',
-      'Failed to fetch employee record'
-    );
+    try {
+      const { employeeId } = req.params;
+      const employee = await this.hrService.getEmployeeRecordById(employeeId);
+      
+      if (!employee) {
+        throw new NotFoundError('Employee record', employeeId);
+      }
+      
+      this.sendSuccessResponse(res, employee, 'Employee record retrieved successfully');
+    } catch (error: any) {
+      const statusCode = this.getErrorStatusCode(error);
+      this.sendErrorResponse(res, error, 'Failed to fetch employee record', statusCode);
+    }
   };
 
   updateEmployeeRecord = async (req: Request, res: Response): Promise<void> => {
