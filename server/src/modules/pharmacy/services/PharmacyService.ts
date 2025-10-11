@@ -233,42 +233,48 @@ export class PharmacyService extends BaseService {
   async getInventory(filters: PharmacyFiltersDto, pagination: PaginationDto): Promise<{ inventory: any[]; pagination: any }> {
     try {
       const { page, limit } = pagination;
-      const offset = (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
-      // Build WHERE clause
-      let whereClause = '1=1';
-      const params: any[] = [];
-
-      if (filters.drugId) {
-        whereClause += ' AND pi.drug_id = ?';
-        params.push(filters.drugId);
-      }
-      if (filters.startDate) {
-        whereClause += ' AND pi.purchase_date >= ?';
-        params.push(filters.startDate);
-      }
-      if (filters.endDate) {
-        whereClause += ' AND pi.purchase_date <= ?';
-        params.push(filters.endDate);
+      // Build match filter
+      const matchFilter: any = {};
+      if (filters.drugId) matchFilter.drugId = filters.drugId;
+      if (filters.startDate || filters.endDate) {
+        matchFilter.createdAt = {};
+        if (filters.startDate) matchFilter.createdAt.$gte = filters.startDate;
+        if (filters.endDate) matchFilter.createdAt.$lte = filters.endDate;
       }
 
-      // Get inventory with pagination
-      const inventory = await getAll(
-        `SELECT pi.*, dm.drug_name, dm.generic_name, dm.dosage_form, dm.strength 
-         FROM pharmacy_inventory pi 
-         JOIN drug_master dm ON pi.drug_id = dm.drug_id 
-         WHERE ${whereClause} 
-         ORDER BY pi.purchase_date DESC 
-         LIMIT ? OFFSET ?`,
-        [...params, limit, offset]
-      );
+      // Get inventory with pagination using aggregation
+      const inventory = await PharmacyInventoryModel.aggregate([
+        { $match: matchFilter },
+        {
+          $lookup: {
+            from: 'drugs',
+            localField: 'drugId',
+            foreignField: 'drugId',
+            as: 'drug'
+          }
+        },
+        {
+          $addFields: {
+            drugName: { $arrayElemAt: ['$drug.drugName', 0] },
+            genericName: { $arrayElemAt: ['$drug.genericName', 0] },
+            dosageForm: { $arrayElemAt: ['$drug.dosageForm', 0] },
+            strength: { $arrayElemAt: ['$drug.strength', 0] }
+          }
+        },
+        {
+          $project: {
+            drug: 0
+          }
+        },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit }
+      ]);
 
       // Get total count
-      const totalResult = await getRow(
-        `SELECT COUNT(*) as total FROM pharmacy_inventory pi WHERE ${whereClause}`,
-        params
-      );
-      const total = totalResult?.total || 0;
+      const total = await PharmacyInventoryModel.countDocuments(matchFilter);
 
       return {
         inventory,
@@ -300,21 +306,21 @@ export class PharmacyService extends BaseService {
       // Generate inventory ID
       const inventoryId = generateId('INV', 6);
 
-      // Create inventory item
-      const result = await runQuery(
-        `INSERT INTO pharmacy_inventory (inventory_id, drug_id, batch_number, expiry_date, 
-         quantity, unit_cost, supplier, purchase_date, location, status, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NOW())`,
-        [
-          inventoryId, inventoryData.drugId, inventoryData.batchNumber, inventoryData.expiryDate,
-          inventoryData.quantity, inventoryData.unitCost, inventoryData.supplier,
-          inventoryData.purchaseDate, inventoryData.location
-        ]
-      );
+      // Create inventory item using MongoDB
+      const inventoryItem = new PharmacyInventoryModel({
+        inventoryId,
+        drugId: inventoryData.drugId,
+        batchNumber: inventoryData.batchNumber,
+        expiryDate: inventoryData.expiryDate,
+        quantity: inventoryData.quantity,
+        unitPrice: inventoryData.unitCost,
+        supplier: inventoryData.supplier,
+        location: inventoryData.location,
+        status: 'available',
+        createdAt: new Date().toISOString()
+      });
 
-      if (!result.acknowledged) {
-        throw new Error('Failed to add inventory item');
-      }
+      await inventoryItem.save();
 
       this.log('info', `Inventory item added: ${inventoryId}`);
       return {
@@ -333,49 +339,69 @@ export class PharmacyService extends BaseService {
   async getDispenses(filters: PharmacyFiltersDto, pagination: PaginationDto): Promise<{ dispenses: any[]; pagination: any }> {
     try {
       const { page, limit } = pagination;
-      const offset = (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
-      // Build WHERE clause
-      let whereClause = '1=1';
-      const params: any[] = [];
-
-      if (filters.patientId) {
-        whereClause += ' AND pd.patient_id = ?';
-        params.push(filters.patientId);
-      }
-      if (filters.drugId) {
-        whereClause += ' AND pd.drug_id = ?';
-        params.push(filters.drugId);
-      }
-      if (filters.startDate) {
-        whereClause += ' AND pd.dispense_date >= ?';
-        params.push(filters.startDate);
-      }
-      if (filters.endDate) {
-        whereClause += ' AND pd.dispense_date <= ?';
-        params.push(filters.endDate);
+      // Build match filter
+      const matchFilter: any = {};
+      if (filters.patientId) matchFilter.patientId = filters.patientId;
+      if (filters.drugId) matchFilter.drugId = filters.drugId;
+      if (filters.startDate || filters.endDate) {
+        matchFilter.dispenseDate = {};
+        if (filters.startDate) matchFilter.dispenseDate.$gte = filters.startDate;
+        if (filters.endDate) matchFilter.dispenseDate.$lte = filters.endDate;
       }
 
-      // Get dispenses with pagination
-      const dispenses = await getAll(
-        `SELECT pd.*, dm.drug_name, dm.generic_name, p.first_name, p.last_name, 
-         s.first_name as staff_first_name, s.last_name as staff_last_name 
-         FROM pharmacy_dispenses pd 
-         JOIN drug_master dm ON pd.drug_id = dm.drug_id 
-         JOIN patients p ON pd.patient_id = p.patient_id 
-         JOIN staff s ON pd.dispensed_by = s.staff_id 
-         WHERE ${whereClause} 
-         ORDER BY pd.dispense_date DESC, pd.dispense_time DESC 
-         LIMIT ? OFFSET ?`,
-        [...params, limit, offset]
-      );
+      // Get dispenses with pagination using aggregation
+      const dispenses = await DispenseModel.aggregate([
+        { $match: matchFilter },
+        {
+          $lookup: {
+            from: 'drugs',
+            localField: 'drugId',
+            foreignField: 'drugId',
+            as: 'drug'
+          }
+        },
+        {
+          $lookup: {
+            from: 'patients',
+            localField: 'patientId',
+            foreignField: 'patientId',
+            as: 'patient'
+          }
+        },
+        {
+          $lookup: {
+            from: 'staff',
+            localField: 'dispensedBy',
+            foreignField: 'staffId',
+            as: 'staff'
+          }
+        },
+        {
+          $addFields: {
+            drugName: { $arrayElemAt: ['$drug.drugName', 0] },
+            genericName: { $arrayElemAt: ['$drug.genericName', 0] },
+            firstName: { $arrayElemAt: ['$patient.firstName', 0] },
+            lastName: { $arrayElemAt: ['$patient.lastName', 0] },
+            staffFirstName: { $arrayElemAt: ['$staff.firstName', 0] },
+            staffLastName: { $arrayElemAt: ['$staff.lastName', 0] }
+          }
+        },
+        {
+          $project: {
+            drug: 0,
+            patient: 0,
+            staff: 0
+          }
+        },
+        { $sort: { dispenseDate: -1, dispenseTime: -1 } },
+        { $skip: skip },
+        { $limit: limit }
+      ]);
 
       // Get total count
-      const totalResult = await getRow(
-        `SELECT COUNT(*) as total FROM pharmacy_dispenses pd WHERE ${whereClause}`,
-        params
-      );
-      const total = totalResult?.total || 0;
+      const total = await DispenseModel.countDocuments(matchFilter);
 
       return {
         dispenses,
@@ -404,45 +430,74 @@ export class PharmacyService extends BaseService {
         throw new Error('Drug not found or inactive');
       }
 
-      // Check inventory availability
-      const inventory = await getRow(
-        `SELECT SUM(quantity) as total_quantity FROM pharmacy_inventory 
-         WHERE drug_id = ? AND status = 'available' AND expiry_date > CURDATE()`,
-        [dispenseData.drugId]
-      );
+      // Check inventory availability using MongoDB aggregation
+      const inventoryAggregation = await PharmacyInventoryModel.aggregate([
+        {
+          $match: {
+            drugId: dispenseData.drugId,
+            status: 'available',
+            expiryDate: { $gt: new Date().toISOString().split('T')[0] }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalQuantity: { $sum: '$quantity' }
+          }
+        }
+      ]);
 
-      if (!inventory || inventory.total_quantity < dispenseData.quantity) {
+      const totalQuantity = inventoryAggregation[0]?.totalQuantity || 0;
+      if (totalQuantity < dispenseData.quantity) {
         throw new Error('Insufficient inventory');
       }
 
       // Generate dispense ID
       const dispenseId = generateId('DISP', 6);
+      const currentDate = new Date();
+      const dispenseDate = currentDate.toISOString().split('T')[0];
+      const dispenseTime = currentDate.toTimeString().split(' ')[0];
 
-      // Create dispense record
-      const result = await runQuery(
-        `INSERT INTO pharmacy_dispenses (dispense_id, patient_id, prescription_id, drug_id, 
-         quantity, dosage, frequency, duration, instructions, dispensed_by, dispense_date, 
-         dispense_time, status, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), CURTIME(), 'dispensed', NOW())`,
-        [
-          dispenseId, dispenseData.patientId, dispenseData.prescriptionId, dispenseData.drugId,
-          dispenseData.quantity, dispenseData.dosage, dispenseData.frequency, dispenseData.duration,
-          dispenseData.instructions, dispenseData.dispensedBy
-        ]
-      );
+      // Create dispense record using MongoDB
+      const dispense = new DispenseModel({
+        dispenseId,
+        patientId: dispenseData.patientId,
+        drugId: dispenseData.drugId,
+        prescriptionId: dispenseData.prescriptionId,
+        quantity: dispenseData.quantity,
+        unitPrice: 0, // Will be set based on inventory or prescription
+        totalAmount: 0, // Will be calculated based on unitPrice
+        dispensedBy: dispenseData.dispensedBy,
+        dispenseDate,
+        dispenseTime,
+        notes: dispenseData.instructions,
+        status: 'dispensed',
+        createdAt: new Date().toISOString()
+      });
 
-      if (!result.acknowledged) {
-        throw new Error('Failed to dispense medication');
+      await dispense.save();
+
+      // Update inventory (FIFO - First In, First Out) using MongoDB
+      const inventoryItems = await PharmacyInventoryModel.find({
+        drugId: dispenseData.drugId,
+        status: 'available',
+        expiryDate: { $gt: dispenseDate }
+      }).sort({ createdAt: 1, expiryDate: 1 });
+
+      let remainingQuantity = dispenseData.quantity;
+      for (const item of inventoryItems) {
+        if (remainingQuantity <= 0) break;
+        
+        const deductQuantity = Math.min(remainingQuantity, item.quantity);
+        await PharmacyInventoryModel.findOneAndUpdate(
+          { inventoryId: item.inventoryId },
+          { 
+            $inc: { quantity: -deductQuantity },
+            updatedAt: new Date().toISOString()
+          }
+        );
+        remainingQuantity -= deductQuantity;
       }
-
-      // Update inventory (FIFO - First In, First Out)
-      await runQuery(
-        `UPDATE pharmacy_inventory SET quantity = quantity - ? 
-         WHERE drug_id = ? AND status = 'available' AND expiry_date > CURDATE() 
-         ORDER BY purchase_date ASC, expiry_date ASC 
-         LIMIT 1`,
-        [dispenseData.quantity, dispenseData.drugId]
-      );
 
       this.log('info', `Medication dispensed: ${dispenseId}`);
       return {
@@ -451,8 +506,8 @@ export class PharmacyService extends BaseService {
         drugId: dispenseData.drugId,
         quantity: dispenseData.quantity,
         status: 'dispensed',
-        dispenseDate: new Date().toISOString().split('T')[0],
-        dispenseTime: new Date().toTimeString().split(' ')[0]
+        dispenseDate,
+        dispenseTime
       };
     } catch (error) {
       this.handleError(error, 'Dispense medication');

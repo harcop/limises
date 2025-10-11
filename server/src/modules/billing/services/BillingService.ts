@@ -1,5 +1,5 @@
 import { BaseService } from '../../base/Service';
-import { BillingAccountModel } from '../../../models';
+import { BillingAccountModel, ChargeModel, PaymentModel, PatientModel } from '../../../models';
 import { 
   generateChargeId,
   generatePaymentId,
@@ -93,21 +93,23 @@ export class BillingService extends BaseService {
       const chargeId = generateChargeId();
       const totalAmount = chargeData.quantity * chargeData.unitPrice;
 
-      // Create charge using legacy database function
-      const result = await runQuery(
-        `INSERT INTO charges (charge_id, patient_id, account_id, service_type, service_description, 
-         service_date, quantity, unit_price, total_amount, status, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`,
-        [
-          chargeId, chargeData.patientId, chargeData.accountId, chargeData.serviceType,
-          chargeData.serviceDescription ? sanitizeString(chargeData.serviceDescription) : null,
-          chargeData.serviceDate, chargeData.quantity, chargeData.unitPrice, totalAmount
-        ]
-      );
+      // Create charge using MongoDB
+      const charge = new ChargeModel({
+        chargeId,
+        patientId: chargeData.patientId,
+        accountId: chargeData.accountId,
+        serviceType: chargeData.serviceType,
+        serviceDescription: chargeData.serviceDescription ? sanitizeString(chargeData.serviceDescription) : undefined,
+        serviceDate: chargeData.serviceDate,
+        quantity: chargeData.quantity,
+        unitPrice: chargeData.unitPrice,
+        totalAmount,
+        status: 'pending',
+        notes: chargeData.notes ? sanitizeString(chargeData.notes) : undefined,
+        createdAt: new Date().toISOString()
+      });
 
-      if (!result.acknowledged) {
-        throw new Error('Failed to create charge');
-      }
+      await charge.save();
 
       // Update billing account balance
       await BillingAccountModel.findOneAndUpdate(
@@ -140,55 +142,60 @@ export class BillingService extends BaseService {
   async getCharges(filters: BillingFiltersDto, pagination: PaginationDto): Promise<{ charges: any[]; pagination: any }> {
     try {
       const { page, limit } = pagination;
-      const offset = (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
-      // Build WHERE clause
-      let whereClause = '1=1';
-      const params: any[] = [];
-
-      if (filters.patientId) {
-        whereClause += ' AND c.patient_id = ?';
-        params.push(filters.patientId);
-      }
-      if (filters.accountId) {
-        whereClause += ' AND c.account_id = ?';
-        params.push(filters.accountId);
-      }
-      if (filters.serviceType) {
-        whereClause += ' AND c.service_type = ?';
-        params.push(filters.serviceType);
-      }
-      if (filters.status) {
-        whereClause += ' AND c.status = ?';
-        params.push(filters.status);
-      }
-      if (filters.startDate) {
-        whereClause += ' AND c.service_date >= ?';
-        params.push(filters.startDate);
-      }
-      if (filters.endDate) {
-        whereClause += ' AND c.service_date <= ?';
-        params.push(filters.endDate);
+      // Build match filter
+      const matchFilter: any = {};
+      if (filters.patientId) matchFilter.patientId = filters.patientId;
+      if (filters.accountId) matchFilter.accountId = filters.accountId;
+      if (filters.serviceType) matchFilter.serviceType = filters.serviceType;
+      if (filters.status) matchFilter.status = filters.status;
+      if (filters.startDate || filters.endDate) {
+        matchFilter.serviceDate = {};
+        if (filters.startDate) matchFilter.serviceDate.$gte = filters.startDate;
+        if (filters.endDate) matchFilter.serviceDate.$lte = filters.endDate;
       }
 
-      // Get charges with pagination
-      const charges = await getAll(
-        `SELECT c.*, p.first_name, p.last_name, p.phone, ba.account_number 
-         FROM charges c 
-         JOIN patients p ON c.patient_id = p.patient_id 
-         JOIN billing_accounts ba ON c.account_id = ba.account_id 
-         WHERE ${whereClause} 
-         ORDER BY c.service_date DESC, c.created_at DESC 
-         LIMIT ? OFFSET ?`,
-        [...params, limit, offset]
-      );
+      // Get charges with pagination using aggregation
+      const charges = await ChargeModel.aggregate([
+        { $match: matchFilter },
+        {
+          $lookup: {
+            from: 'patients',
+            localField: 'patientId',
+            foreignField: 'patientId',
+            as: 'patient'
+          }
+        },
+        {
+          $lookup: {
+            from: 'billing_accounts',
+            localField: 'accountId',
+            foreignField: 'accountId',
+            as: 'billingAccount'
+          }
+        },
+        {
+          $addFields: {
+            firstName: { $arrayElemAt: ['$patient.firstName', 0] },
+            lastName: { $arrayElemAt: ['$patient.lastName', 0] },
+            phone: { $arrayElemAt: ['$patient.phone', 0] },
+            accountNumber: { $arrayElemAt: ['$billingAccount.accountNumber', 0] }
+          }
+        },
+        {
+          $project: {
+            patient: 0,
+            billingAccount: 0
+          }
+        },
+        { $sort: { serviceDate: -1, createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit }
+      ]);
 
       // Get total count
-      const totalResult = await getRow(
-        `SELECT COUNT(*) as total FROM charges c WHERE ${whereClause}`,
-        params
-      );
-      const total = totalResult?.total || 0;
+      const total = await ChargeModel.countDocuments(matchFilter);
 
       return {
         charges,
@@ -206,20 +213,47 @@ export class BillingService extends BaseService {
 
   async getCharge(chargeId: string): Promise<any> {
     try {
-      const charge = await getRow(
-        `SELECT c.*, p.first_name, p.last_name, p.phone, p.email, ba.account_number, ba.balance 
-         FROM charges c 
-         JOIN patients p ON c.patient_id = p.patient_id 
-         JOIN billing_accounts ba ON c.account_id = ba.account_id 
-         WHERE c.charge_id = ?`,
-        [chargeId]
-      );
+      const charges = await ChargeModel.aggregate([
+        { $match: { chargeId } },
+        {
+          $lookup: {
+            from: 'patients',
+            localField: 'patientId',
+            foreignField: 'patientId',
+            as: 'patient'
+          }
+        },
+        {
+          $lookup: {
+            from: 'billing_accounts',
+            localField: 'accountId',
+            foreignField: 'accountId',
+            as: 'billingAccount'
+          }
+        },
+        {
+          $addFields: {
+            firstName: { $arrayElemAt: ['$patient.firstName', 0] },
+            lastName: { $arrayElemAt: ['$patient.lastName', 0] },
+            phone: { $arrayElemAt: ['$patient.phone', 0] },
+            email: { $arrayElemAt: ['$patient.email', 0] },
+            accountNumber: { $arrayElemAt: ['$billingAccount.accountNumber', 0] },
+            balance: { $arrayElemAt: ['$billingAccount.balance', 0] }
+          }
+        },
+        {
+          $project: {
+            patient: 0,
+            billingAccount: 0
+          }
+        }
+      ]);
 
-      if (!charge) {
+      if (!charges || charges.length === 0) {
         throw new Error('Charge not found');
       }
 
-      return charge;
+      return charges[0];
     } catch (error) {
       this.handleError(error, 'Get charge');
     }
@@ -247,21 +281,21 @@ export class BillingService extends BaseService {
       // Generate payment ID
       const paymentId = generatePaymentId();
 
-      // Create payment
-      const result = await runQuery(
-        `INSERT INTO payments (payment_id, patient_id, account_id, payment_method, payment_amount, 
-         payment_date, reference_number, status, notes, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?, NOW())`,
-        [
-          paymentId, paymentData.patientId, paymentData.accountId, paymentData.paymentMethod,
-          paymentData.paymentAmount, paymentData.paymentDate, paymentData.referenceNumber,
-          paymentData.notes ? sanitizeString(paymentData.notes) : null
-        ]
-      );
+      // Create payment using MongoDB
+      const payment = new PaymentModel({
+        paymentId,
+        patientId: paymentData.patientId,
+        accountId: paymentData.accountId,
+        paymentMethod: paymentData.paymentMethod,
+        paymentAmount: paymentData.paymentAmount,
+        paymentDate: paymentData.paymentDate,
+        referenceNumber: paymentData.referenceNumber,
+        status: 'completed',
+        notes: paymentData.notes ? sanitizeString(paymentData.notes) : undefined,
+        createdAt: new Date().toISOString()
+      });
 
-      if (!result.acknowledged) {
-        throw new Error('Failed to create payment');
-      }
+      await payment.save();
 
       // Update billing account balance
       await BillingAccountModel.findOneAndUpdate(
@@ -291,55 +325,60 @@ export class BillingService extends BaseService {
   async getPayments(filters: BillingFiltersDto, pagination: PaginationDto): Promise<{ payments: any[]; pagination: any }> {
     try {
       const { page, limit } = pagination;
-      const offset = (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
-      // Build WHERE clause
-      let whereClause = '1=1';
-      const params: any[] = [];
-
-      if (filters.patientId) {
-        whereClause += ' AND p.patient_id = ?';
-        params.push(filters.patientId);
-      }
-      if (filters.accountId) {
-        whereClause += ' AND p.account_id = ?';
-        params.push(filters.accountId);
-      }
-      if (filters.paymentMethod) {
-        whereClause += ' AND p.payment_method = ?';
-        params.push(filters.paymentMethod);
-      }
-      if (filters.status) {
-        whereClause += ' AND p.status = ?';
-        params.push(filters.status);
-      }
-      if (filters.startDate) {
-        whereClause += ' AND p.payment_date >= ?';
-        params.push(filters.startDate);
-      }
-      if (filters.endDate) {
-        whereClause += ' AND p.payment_date <= ?';
-        params.push(filters.endDate);
+      // Build match filter
+      const matchFilter: any = {};
+      if (filters.patientId) matchFilter.patientId = filters.patientId;
+      if (filters.accountId) matchFilter.accountId = filters.accountId;
+      if (filters.paymentMethod) matchFilter.paymentMethod = filters.paymentMethod;
+      if (filters.status) matchFilter.status = filters.status;
+      if (filters.startDate || filters.endDate) {
+        matchFilter.paymentDate = {};
+        if (filters.startDate) matchFilter.paymentDate.$gte = filters.startDate;
+        if (filters.endDate) matchFilter.paymentDate.$lte = filters.endDate;
       }
 
-      // Get payments with pagination
-      const payments = await getAll(
-        `SELECT p.*, pt.first_name, pt.last_name, pt.phone, ba.account_number 
-         FROM payments p 
-         JOIN patients pt ON p.patient_id = pt.patient_id 
-         JOIN billing_accounts ba ON p.account_id = ba.account_id 
-         WHERE ${whereClause} 
-         ORDER BY p.payment_date DESC, p.created_at DESC 
-         LIMIT ? OFFSET ?`,
-        [...params, limit, offset]
-      );
+      // Get payments with pagination using aggregation
+      const payments = await PaymentModel.aggregate([
+        { $match: matchFilter },
+        {
+          $lookup: {
+            from: 'patients',
+            localField: 'patientId',
+            foreignField: 'patientId',
+            as: 'patient'
+          }
+        },
+        {
+          $lookup: {
+            from: 'billing_accounts',
+            localField: 'accountId',
+            foreignField: 'accountId',
+            as: 'billingAccount'
+          }
+        },
+        {
+          $addFields: {
+            firstName: { $arrayElemAt: ['$patient.firstName', 0] },
+            lastName: { $arrayElemAt: ['$patient.lastName', 0] },
+            phone: { $arrayElemAt: ['$patient.phone', 0] },
+            accountNumber: { $arrayElemAt: ['$billingAccount.accountNumber', 0] }
+          }
+        },
+        {
+          $project: {
+            patient: 0,
+            billingAccount: 0
+          }
+        },
+        { $sort: { paymentDate: -1, createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit }
+      ]);
 
       // Get total count
-      const totalResult = await getRow(
-        `SELECT COUNT(*) as total FROM payments p WHERE ${whereClause}`,
-        params
-      );
-      const total = totalResult?.total || 0;
+      const total = await PaymentModel.countDocuments(matchFilter);
 
       return {
         payments,
@@ -457,66 +496,93 @@ export class BillingService extends BaseService {
   // Statistics
   async getBillingStats(filters: { startDate?: string; endDate?: string }): Promise<any> {
     try {
-      let dateFilter = '';
-      const params: any[] = [];
-
+      // Build date filter for charges and payments
+      const dateFilter: any = {};
       if (filters.startDate && filters.endDate) {
-        dateFilter = 'WHERE service_date BETWEEN ? AND ?';
-        params.push(filters.startDate, filters.endDate);
+        dateFilter.serviceDate = { $gte: filters.startDate, $lte: filters.endDate };
       }
 
-      // Get charge statistics
-      const chargeStats = await getRow(
-        `SELECT 
-         COUNT(*) as totalCharges,
-         SUM(total_amount) as totalChargesAmount,
-         COUNT(CASE WHEN status = 'pending' THEN 1 END) as pendingCharges,
-         COUNT(CASE WHEN status = 'paid' THEN 1 END) as paidCharges
-         FROM charges ${dateFilter}`,
-        params
-      );
+      // Get charge statistics using aggregation
+      const chargeStats = await ChargeModel.aggregate([
+        ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
+        {
+          $group: {
+            _id: null,
+            totalCharges: { $sum: 1 },
+            totalChargesAmount: { $sum: '$totalAmount' },
+            pendingCharges: {
+              $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
+            },
+            paidCharges: {
+              $sum: { $cond: [{ $eq: ['$status', 'paid'] }, 1, 0] }
+            }
+          }
+        }
+      ]);
 
-      // Get payment statistics
-      const paymentStats = await getRow(
-        `SELECT 
-         COUNT(*) as totalPayments,
-         SUM(payment_amount) as totalPaymentsAmount,
-         COUNT(CASE WHEN payment_method = 'cash' THEN 1 END) as cashPayments,
-         COUNT(CASE WHEN payment_method = 'card' THEN 1 END) as cardPayments,
-         COUNT(CASE WHEN payment_method = 'insurance' THEN 1 END) as insurancePayments
-         FROM payments ${dateFilter}`,
-        params
-      );
+      // Get payment statistics using aggregation
+      const paymentDateFilter = { ...dateFilter };
+      if (paymentDateFilter.serviceDate) {
+        paymentDateFilter.paymentDate = paymentDateFilter.serviceDate;
+        delete paymentDateFilter.serviceDate;
+      }
 
-      // Get account statistics
-      const accountStats = await getRow(
-        `SELECT 
-         COUNT(*) as totalAccounts,
-         COUNT(CASE WHEN status = 'active' THEN 1 END) as activeAccounts,
-         SUM(balance) as totalOutstandingBalance,
-         COUNT(CASE WHEN balance > 0 THEN 1 END) as accountsWithBalance
-         FROM billing_accounts`
-      );
+      const paymentStats = await PaymentModel.aggregate([
+        ...(Object.keys(paymentDateFilter).length > 0 ? [{ $match: paymentDateFilter }] : []),
+        {
+          $group: {
+            _id: null,
+            totalPayments: { $sum: 1 },
+            totalPaymentsAmount: { $sum: '$paymentAmount' },
+            cashPayments: {
+              $sum: { $cond: [{ $eq: ['$paymentMethod', 'cash'] }, 1, 0] }
+            },
+            cardPayments: {
+              $sum: { $cond: [{ $eq: ['$paymentMethod', 'card'] }, 1, 0] }
+            },
+            insurancePayments: {
+              $sum: { $cond: [{ $eq: ['$paymentMethod', 'insurance'] }, 1, 0] }
+            }
+          }
+        }
+      ]);
+
+      // Get account statistics using aggregation
+      const accountStats = await BillingAccountModel.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalAccounts: { $sum: 1 },
+            activeAccounts: {
+              $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] }
+            },
+            totalOutstandingBalance: { $sum: '$balance' },
+            accountsWithBalance: {
+              $sum: { $cond: [{ $gt: ['$balance', 0] }, 1, 0] }
+            }
+          }
+        }
+      ]);
 
       return {
         charges: {
-          totalCharges: chargeStats?.totalCharges || 0,
-          totalChargesAmount: chargeStats?.totalChargesAmount || 0,
-          pendingCharges: chargeStats?.pendingCharges || 0,
-          paidCharges: chargeStats?.paidCharges || 0
+          totalCharges: chargeStats[0]?.totalCharges || 0,
+          totalChargesAmount: chargeStats[0]?.totalChargesAmount || 0,
+          pendingCharges: chargeStats[0]?.pendingCharges || 0,
+          paidCharges: chargeStats[0]?.paidCharges || 0
         },
         payments: {
-          totalPayments: paymentStats?.totalPayments || 0,
-          totalPaymentsAmount: paymentStats?.totalPaymentsAmount || 0,
-          cashPayments: paymentStats?.cashPayments || 0,
-          cardPayments: paymentStats?.cardPayments || 0,
-          insurancePayments: paymentStats?.insurancePayments || 0
+          totalPayments: paymentStats[0]?.totalPayments || 0,
+          totalPaymentsAmount: paymentStats[0]?.totalPaymentsAmount || 0,
+          cashPayments: paymentStats[0]?.cashPayments || 0,
+          cardPayments: paymentStats[0]?.cardPayments || 0,
+          insurancePayments: paymentStats[0]?.insurancePayments || 0
         },
         accounts: {
-          totalAccounts: accountStats?.totalAccounts || 0,
-          activeAccounts: accountStats?.activeAccounts || 0,
-          totalOutstandingBalance: accountStats?.totalOutstandingBalance || 0,
-          accountsWithBalance: accountStats?.accountsWithBalance || 0
+          totalAccounts: accountStats[0]?.totalAccounts || 0,
+          activeAccounts: accountStats[0]?.activeAccounts || 0,
+          totalOutstandingBalance: accountStats[0]?.totalOutstandingBalance || 0,
+          accountsWithBalance: accountStats[0]?.accountsWithBalance || 0
         }
       };
     } catch (error) {

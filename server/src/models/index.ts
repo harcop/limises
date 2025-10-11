@@ -18,8 +18,8 @@ export { ClinicalNoteModel, PrescriptionModel, DrugMasterModel } from '../module
 export type { IClinicalNote, IPrescription, IDrugMaster } from '../modules/clinical/models';
 
 // Billing Module
-export { BillingAccountModel } from '../modules/billing/models';
-export type { IBillingAccount } from '../modules/billing/models';
+export { BillingAccountModel, ChargeModel, PaymentModel } from '../modules/billing/models';
+export type { IBillingAccount, ICharge, IPayment } from '../modules/billing/models';
 
 // Inventory Module
 export { InventoryItemModel, InventoryTransactionModel, PurchaseOrderModel } from '../modules/inventory/models';
