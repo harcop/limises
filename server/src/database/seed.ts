@@ -153,12 +153,18 @@ async function seedDatabase(): Promise<void> {
     const createdPatients = await PatientModel.insertMany(patients);
     logger.info(`Seeded ${createdPatients.length} patients`);
     
+    // Check if we have enough data to create appointments
+    if (createdPatients.length === 0 || createdStaff.length === 0) {
+      logger.warn('Not enough patients or staff to create appointments');
+      return;
+    }
+    
     // Seed appointments
     const appointments = [
       {
         appointmentId: uuidv4(),
-        patientId: createdPatients[0].patientId,
-        staffId: createdStaff[0].staffId,
+        patientId: createdPatients[0]!.patientId,
+        staffId: createdStaff[0]!.staffId,
         appointmentDate: new Date('2024-01-15'),
         appointmentTime: '10:00',
         appointmentType: 'consultation',
@@ -168,8 +174,8 @@ async function seedDatabase(): Promise<void> {
       },
       {
         appointmentId: uuidv4(),
-        patientId: createdPatients[1].patientId,
-        staffId: createdStaff[1].staffId,
+        patientId: createdPatients[1]!.patientId,
+        staffId: createdStaff[1]!.staffId,
         appointmentDate: new Date('2024-01-16'),
         appointmentTime: '14:00',
         appointmentType: 'follow_up',

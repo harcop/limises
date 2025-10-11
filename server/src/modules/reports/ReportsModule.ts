@@ -1,6 +1,5 @@
 import { BaseModule } from '../base/Module';
-import { authenticate, authorize } from '../../middleware/auth';
-import { validateId, validatePagination } from '../../middleware/validation';
+import { authenticate } from '../../middleware/auth';
 
 export class ReportsModule extends BaseModule {
   constructor() {
@@ -14,7 +13,7 @@ export class ReportsModule extends BaseModule {
     this.initializeHealthCheck();
 
     // Basic Reports routes - can be expanded later
-    this.router.get('/', (req, res) => {
+    this.router.get('/', (_req, res) => {
       res.json({ success: true, message: 'Reports routes active' });
     });
 

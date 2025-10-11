@@ -54,3 +54,22 @@ export * from '../modules/systemIntegration/interfaces';
 
 // Common/Shared Types
 export * from '../modules/base/interfaces';
+
+// Error Types (excluding duplicates)
+export {
+  AppError,
+  NotFoundError,
+  UnauthorizedError,
+  ForbiddenError,
+  ConflictError,
+  DatabaseError,
+  ExternalServiceError,
+  RateLimitError,
+  BusinessLogicError,
+  ErrorResponse,
+  SuccessResponse,
+  PaginatedResponse as ErrorPaginatedResponse,
+  ValidationErrorDetail,
+  ApiResponse as ErrorApiResponse,
+  ApiPaginatedResponse as ErrorApiPaginatedResponse
+} from './errors';

@@ -15,15 +15,8 @@ export class StaffModule extends BaseModule {
     // Apply authentication to all routes
     this.router.use(authenticate);
 
-    // Health check endpoint
-    this.router.get('/health', (req, res) => {
-      res.json({
-        success: true,
-        message: 'Staff module is active',
-        module: 'StaffModule',
-        timestamp: new Date().toISOString()
-      });
-    });
+    // Initialize health check
+    this.initializeHealthCheck();
 
     // Staff routes
     this.router.post('/', 

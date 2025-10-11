@@ -6,6 +6,9 @@ export interface BillingAccount {
   accountId: string;
   patientId: string;
   accountNumber: string;
+  accountType?: string;
+  insuranceProvider?: string;
+  policyNumber?: string;
   balance: number;
   status: 'active' | 'inactive' | 'closed';
   createdAt: string;

@@ -1,6 +1,5 @@
 import { RadiologyOrderModel, RadiologyStudyModel, RadiologyEquipmentModel } from '../models';
 import { CreateRadiologyOrderDto, UpdateRadiologyOrderDto, CreateRadiologyStudyDto, UpdateRadiologyStudyDto, CreateRadiologyEquipmentDto, UpdateRadiologyEquipmentDto, CompleteRadiologyStudyDto } from '../dto/CreateRadiologyDto';
-import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../../../utils/logger';
 
 export class RadiologyService {

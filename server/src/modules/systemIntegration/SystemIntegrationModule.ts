@@ -15,15 +15,8 @@ export class SystemIntegrationModule extends BaseModule {
     // Apply authentication to all routes
     this.router.use(authenticate);
 
-    // Health check endpoint
-    this.router.get('/health', (req, res) => {
-      res.json({
-        success: true,
-        message: 'System Integration module is active',
-        module: 'SystemIntegrationModule',
-        timestamp: new Date().toISOString()
-      });
-    });
+    // Initialize health check
+    this.initializeHealthCheck();
 
     // ==============================================
     // SYSTEM INTEGRATION MANAGEMENT

@@ -24,7 +24,7 @@ const AppointmentSchema = new Schema<IAppointment>({
     description: 'Reference to the healthcare provider for this appointment'
   },
   appointmentDate: {
-    type: Date,
+    type: String,
     required: true,
     description: 'Date of the appointment'
   },

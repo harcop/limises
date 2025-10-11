@@ -55,10 +55,12 @@ export interface AuthRequest extends Request {
 
 // JWT Types
 export interface JWTPayload {
-  userId: string;
+  userId?: string;
+  authId?: string;
   staffId?: string;
   username: string;
   roles: string[];
+  userType?: string;
   iat: number;
   exp: number;
 }

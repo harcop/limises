@@ -1,6 +1,5 @@
 import { SystemIntegrationModel, SecurityAuditModel } from '../models';
 import { CreateSystemIntegrationDto, UpdateSystemIntegrationDto, TestIntegrationDto, CreateSecurityAuditDto, SecurityAuditFilterDto, SyncIntegrationDto } from '../dto/CreateSystemIntegrationDto';
-import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../../../utils/logger';
 import axios from 'axios';
 

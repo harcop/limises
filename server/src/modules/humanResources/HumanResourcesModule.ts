@@ -15,15 +15,8 @@ export class HumanResourcesModule extends BaseModule {
     // Apply authentication to all routes
     this.router.use(authenticate);
 
-    // Health check endpoint
-    this.router.get('/health', (req, res) => {
-      res.json({
-        success: true,
-        message: 'Human Resources module is active',
-        module: 'HumanResourcesModule',
-        timestamp: new Date().toISOString()
-      });
-    });
+    // Initialize health check
+    this.initializeHealthCheck();
 
     // ==============================================
     // EMPLOYEE RECORD MANAGEMENT
@@ -214,12 +207,6 @@ export class HumanResourcesModule extends BaseModule {
       this.controller.getPerformanceStats
     );
 
-    // @route   GET /api/hr/stats
-    // @desc    Get HR statistics
-    // @access  Private (All Staff)
-    this.router.get('/stats', 
-      this.controller.getHRStats
-    );
 
     this.log('info', 'Human Resources module routes initialized');
   }

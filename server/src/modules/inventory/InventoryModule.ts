@@ -15,6 +15,9 @@ export class InventoryModule extends BaseModule {
     // Apply authentication to all routes
     this.router.use(authenticate);
 
+    // Initialize health check
+    this.initializeHealthCheck();
+
     // ==============================================
     // INVENTORY ITEMS MANAGEMENT
     // ==============================================

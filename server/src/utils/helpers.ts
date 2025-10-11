@@ -3,14 +3,14 @@ import moment from 'moment';
 // Generate unique IDs for different entities
 export const generateId = (prefix: string, length: number = 8): string => {
   const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substr(2, length);
+  const random = Math.random().toString(36).substring(2, 2 + length);
   return `${prefix}-${timestamp}-${random}`.toUpperCase();
 };
 
 // Generate patient ID
 export const generatePatientId = (): string => {
   const year = new Date().getFullYear();
-  const random = Math.random().toString(36).substr(2, 6).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
   return `HMS-${year}-${random}`;
 };
 
@@ -199,7 +199,7 @@ export const generateTimeSlots = (startTime: string, endTime: string, duration: 
   return slots;
 };
 
-// Check for time conflicts
+// Check for time conflicts between two time ranges
 export const hasTimeConflict = (newStart: string, newEnd: string, existingStart: string, existingEnd: string): boolean => {
   const newStartTime = moment(newStart, 'HH:mm');
   const newEndTime = moment(newEnd, 'HH:mm');

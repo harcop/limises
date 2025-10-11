@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { HRService } from '../services/HRService';
-import { logger } from '../../../utils/logger';
+import { BaseController } from '../../base/Controller';
+import { NotFoundError, ValidationError, ConflictError } from '../../../types/errors';
 
-export class HRController {
+export class HRController extends BaseController {
   private hrService: HRService;
 
   constructor() {
+    super('HRController');
     this.hrService = new HRService();
   }
 
@@ -14,76 +16,61 @@ export class HRController {
   // ==============================================
 
   createEmployeeRecord = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const employeeData = req.body;
-      const employee = await this.hrService.createEmployeeRecord(employeeData);
-
-      res.status(201).json({
-        success: true,
-        message: 'Employee record created successfully',
-        data: employee
-      });
-    } catch (error: any) {
-      logger.error('Error creating employee record:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to create employee record',
-        error: error.message
-      });
-    }
+    await this.handleAsyncOperation(
+      res,
+      async () => {
+        const employeeData = req.body;
+        return await this.hrService.createEmployeeRecord(employeeData);
+      },
+      'Employee record created successfully',
+      'Failed to create employee record',
+      201
+    );
   };
 
   getEmployeeRecords = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { page = 1, limit = 10, department, employmentType, status, managerId } = req.query;
-      
-      const filters: any = {};
-      if (department) filters.department = department as string;
-      if (employmentType) filters.employmentType = employmentType as string;
-      if (status) filters.status = status as string;
-      if (managerId) filters.managerId = managerId as string;
+    await this.handlePaginatedOperation(
+      res,
+      async () => {
+        const { page = 1, limit = 10, department, employmentType, status, managerId } = req.query;
+        
+        const filters: Record<string, string> = {};
+        if (department) filters.department = department as string;
+        if (employmentType) filters.employmentType = employmentType as string;
+        if (status) filters.status = status as string;
+        if (managerId) filters.managerId = managerId as string;
 
-      const result = await this.hrService.getEmployeeRecords(
-        filters,
-        parseInt(page as string),
-        parseInt(limit as string)
-      );
+        const result = await this.hrService.getEmployeeRecords(
+          filters,
+          parseInt(page as string),
+          parseInt(limit as string)
+        );
 
-      res.json({
-        success: true,
-        message: 'Employee records retrieved successfully',
-        data: result.employees,
-        pagination: result.pagination
-      });
-    } catch (error: any) {
-      logger.error('Error fetching employee records:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch employee records',
-        error: error.message
-      });
-    }
+        return {
+          data: result.employees,
+          pagination: result.pagination
+        };
+      },
+      'Employee records retrieved successfully'
+    );
   };
 
   getEmployeeRecordById = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { employeeId } = req.params;
-      const employee = await this.hrService.getEmployeeRecordById(employeeId);
-
-      res.json({
-        success: true,
-        message: 'Employee record retrieved successfully',
-        data: employee
-      });
-    } catch (error: any) {
-      logger.error('Error fetching employee record:', error);
-      const statusCode = error.message === 'Employee record not found' ? 404 : 500;
-      res.status(statusCode).json({
-        success: false,
-        message: error.message || 'Failed to fetch employee record',
-        error: error.message
-      });
-    }
+    await this.handleAsyncOperation(
+      res,
+      async () => {
+        const { employeeId } = req.params;
+        const employee = await this.hrService.getEmployeeRecordById(employeeId);
+        
+        if (!employee) {
+          throw new NotFoundError('Employee record', employeeId);
+        }
+        
+        return employee;
+      },
+      'Employee record retrieved successfully',
+      'Failed to fetch employee record'
+    );
   };
 
   updateEmployeeRecord = async (req: Request, res: Response): Promise<void> => {
@@ -516,22 +503,4 @@ export class HRController {
     }
   };
 
-  getHRStats = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const stats = await this.hrService.getHRDashboardStats();
-
-      res.json({
-        success: true,
-        message: 'HR statistics retrieved successfully',
-        data: stats
-      });
-    } catch (error: any) {
-      logger.error('Error fetching HR stats:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch HR statistics',
-        error: error.message
-      });
-    }
-  };
 }

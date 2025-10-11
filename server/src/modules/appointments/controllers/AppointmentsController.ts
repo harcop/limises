@@ -4,100 +4,176 @@ import { AppointmentsService } from '../services/AppointmentsService';
 import { AuthRequest } from '../../../types';
 
 export class AppointmentsController extends BaseController {
+  private service: AppointmentsService;
+
   constructor() {
-    super(new AppointmentsService(), 'AppointmentsController');
+    super('AppointmentsController');
+    this.service = new AppointmentsService();
   }
 
   // Appointment management routes
-  createAppointment = this.handleAsync(async (req: AuthRequest, res: Response) => {
-    const appointmentData = req.body;
-    const result = await this.service.createAppointment(appointmentData);
-    this.sendSuccess(res, { appointment: result }, 'Appointment scheduled successfully', 201);
-  });
+  createAppointment = async (req: AuthRequest, res: Response): Promise<void> => {
+    await this.handleAsyncOperation(
+      res,
+      async () => {
+        const appointmentData = req.body;
+        return await this.service.createAppointment(appointmentData);
+      },
+      'Appointment scheduled successfully',
+      'Failed to create appointment',
+      201
+    );
+  };
 
-  getAppointments = this.handleAsync(async (req: AuthRequest, res: Response) => {
-    const filters = {
-      patientId: req.query.patientId as string,
-      staffId: req.query.staffId as string,
-      appointmentDate: req.query.appointmentDate as string,
-      appointmentType: req.query.appointmentType as string,
-      status: req.query.status as string,
-      startDate: req.query.startDate as string,
-      endDate: req.query.endDate as string,
-      roomNumber: req.query.roomNumber as string
-    };
+  getAppointments = async (req: AuthRequest, res: Response): Promise<void> => {
+    await this.handlePaginatedOperation(
+      res,
+      async () => {
+        const filters = {
+          patientId: req.query['patientId'] as string,
+          staffId: req.query['staffId'] as string,
+          appointmentDate: req.query['appointmentDate'] as string,
+          appointmentType: req.query['appointmentType'] as string,
+          status: req.query['status'] as string,
+          startDate: req.query['startDate'] as string,
+          endDate: req.query['endDate'] as string,
+          roomNumber: req.query['roomNumber'] as string
+        };
 
-    const pagination = {
-      page: parseInt(req.query.page as string) || 1,
-      limit: parseInt(req.query.limit as string) || 20
-    };
+        const pagination = {
+          page: parseInt(req.query['page'] as string) || 1,
+          limit: parseInt(req.query['limit'] as string) || 20
+        };
 
-    const result = await this.service.getAppointments(filters, pagination);
-    this.sendSuccess(res, result);
-  });
+        const result = await this.service.getAppointments(filters, pagination);
+        return {
+          data: result.appointments,
+          pagination: result.pagination
+        };
+      },
+      'Appointments retrieved successfully'
+    );
+  };
 
-  getAppointment = this.handleAsync(async (req: AuthRequest, res: Response) => {
-      const { appointmentId } = req.params;
-    const appointment = await this.service.getAppointment(appointmentId);
-    this.sendSuccess(res, { appointment });
-  });
+  getAppointment = async (req: AuthRequest, res: Response): Promise<void> => {
+    await this.handleAsyncOperation(
+      res,
+      async () => {
+        const { appointmentId } = req.params;
+        if (!appointmentId) {
+          throw new Error('Appointment ID is required');
+        }
+        return await this.service.getAppointment(appointmentId);
+      },
+      'Appointment retrieved successfully',
+      'Failed to retrieve appointment'
+    );
+  };
 
-  updateAppointment = this.handleAsync(async (req: AuthRequest, res: Response) => {
-      const { appointmentId } = req.params;
-      const updateData = req.body;
-    const updatedAppointment = await this.service.updateAppointment(appointmentId, updateData);
-    this.sendSuccess(res, { appointment: updatedAppointment }, 'Appointment updated successfully');
-  });
+  updateAppointment = async (req: AuthRequest, res: Response): Promise<void> => {
+    await this.handleAsyncOperation(
+      res,
+      async () => {
+        const { appointmentId } = req.params;
+        if (!appointmentId) {
+          throw new Error('Appointment ID is required');
+        }
+        const updateData = req.body;
+        return await this.service.updateAppointment(appointmentId, updateData);
+      },
+      'Appointment updated successfully',
+      'Failed to update appointment'
+    );
+  };
 
-  cancelAppointment = this.handleAsync(async (req: AuthRequest, res: Response) => {
-      const { appointmentId } = req.params;
-      const { reason } = req.body;
-    await this.service.cancelAppointment(appointmentId, reason);
-    this.sendSuccess(res, null, 'Appointment cancelled successfully');
-  });
+  cancelAppointment = async (req: AuthRequest, res: Response): Promise<void> => {
+    await this.handleAsyncOperation(
+      res,
+      async () => {
+        const { appointmentId } = req.params;
+        if (!appointmentId) {
+          throw new Error('Appointment ID is required');
+        }
+        const { reason } = req.body;
+        return await this.service.cancelAppointment(appointmentId, reason);
+      },
+      'Appointment cancelled successfully',
+      'Failed to cancel appointment'
+    );
+  };
 
-  rescheduleAppointment = this.handleAsync(async (req: AuthRequest, res: Response) => {
-      const { appointmentId } = req.params;
-    const { newDate, newStartTime, newEndTime } = req.body;
-    const rescheduledAppointment = await this.service.rescheduleAppointment(appointmentId, newDate, newStartTime, newEndTime);
-    this.sendSuccess(res, { appointment: rescheduledAppointment }, 'Appointment rescheduled successfully');
-  });
+  rescheduleAppointment = async (req: AuthRequest, res: Response): Promise<void> => {
+    await this.handleAsyncOperation(
+      res,
+      async () => {
+        const { appointmentId } = req.params;
+        if (!appointmentId) {
+          throw new Error('Appointment ID is required');
+        }
+        const { newDate, newAppointmentTime, newDuration } = req.body;
+        return await this.service.rescheduleAppointment(appointmentId, newDate, newAppointmentTime, newDuration);
+      },
+      'Appointment rescheduled successfully',
+      'Failed to reschedule appointment'
+    );
+  };
 
   // Statistics and reports
-  getAppointmentStats = this.handleAsync(async (req: AuthRequest, res: Response) => {
-    const filters = {
-      startDate: req.query.startDate as string,
-      endDate: req.query.endDate as string
-    };
+  getAppointmentStats = async (req: AuthRequest, res: Response): Promise<void> => {
+    await this.handleAsyncOperation(
+      res,
+      async () => {
+        const filters = {
+          startDate: req.query['startDate'] as string,
+          endDate: req.query['endDate'] as string
+        };
+        return await this.service.getAppointmentStats(filters);
+      },
+      'Appointment statistics retrieved successfully',
+      'Failed to retrieve appointment statistics'
+    );
+  };
 
-    const stats = await this.service.getAppointmentStats(filters);
-    this.sendSuccess(res, stats);
-  });
+  getStaffSchedule = async (req: AuthRequest, res: Response): Promise<void> => {
+    await this.handleAsyncOperation(
+      res,
+      async () => {
+        const { staffId } = req.params;
+        if (!staffId) {
+          throw new Error('Staff ID is required');
+        }
+        const { date } = req.query;
+        
+        if (!date) {
+          throw new Error('Date parameter is required');
+        }
 
-  getStaffSchedule = this.handleAsync(async (req: AuthRequest, res: Response) => {
-      const { staffId } = req.params;
-    const { date } = req.query;
-    
-    if (!date) {
-      this.sendError(res, 'Date parameter is required', 400);
-      return;
-    }
+        return await this.service.getStaffSchedule(staffId, date as string);
+      },
+      'Staff schedule retrieved successfully',
+      'Failed to retrieve staff schedule'
+    );
+  };
 
-    const schedule = await this.service.getStaffSchedule(staffId, date as string);
-    this.sendSuccess(res, { schedule });
-  });
+  getAvailableTimeSlots = async (req: AuthRequest, res: Response): Promise<void> => {
+    await this.handleAsyncOperation(
+      res,
+      async () => {
+        const { staffId } = req.params;
+        if (!staffId) {
+          throw new Error('Staff ID is required');
+        }
+        const { date, duration } = req.query;
+        
+        if (!date) {
+          throw new Error('Date parameter is required');
+        }
 
-  getAvailableTimeSlots = this.handleAsync(async (req: AuthRequest, res: Response) => {
-    const { staffId } = req.params;
-    const { date, duration } = req.query;
-    
-    if (!date) {
-      this.sendError(res, 'Date parameter is required', 400);
-      return;
-    }
-
-    const durationMinutes = duration ? parseInt(duration as string) : 30;
-    const timeSlots = await this.service.getAvailableTimeSlots(staffId, date as string, durationMinutes);
-    this.sendSuccess(res, { timeSlots });
-  });
+        const durationMinutes = duration ? parseInt(duration as string) : 30;
+        return await this.service.getAvailableTimeSlots(staffId, date as string, durationMinutes);
+      },
+      'Available time slots retrieved successfully',
+      'Failed to retrieve available time slots'
+    );
+  };
 }

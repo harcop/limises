@@ -15,15 +15,8 @@ export class EmergencyModule extends BaseModule {
     // Apply authentication to all routes
     this.router.use(authenticate);
 
-    // Health check endpoint
-    this.router.get('/health', (req, res) => {
-      res.json({
-        success: true,
-        message: 'Emergency module is active',
-        module: 'EmergencyModule',
-        timestamp: new Date().toISOString()
-      });
-    });
+    // Initialize health check
+    this.initializeHealthCheck();
 
     // ==============================================
     // EMERGENCY VISIT MANAGEMENT

@@ -15,15 +15,8 @@ export class RadiologyModule extends BaseModule {
     // Apply authentication to all routes
     this.router.use(authenticate);
 
-    // Health check endpoint
-    this.router.get('/health', (req, res) => {
-      res.json({
-        success: true,
-        message: 'Radiology module is active',
-        module: 'RadiologyModule',
-        timestamp: new Date().toISOString()
-      });
-    });
+    // Initialize health check
+    this.initializeHealthCheck();
 
     // ==============================================
     // RADIOLOGY ORDER MANAGEMENT

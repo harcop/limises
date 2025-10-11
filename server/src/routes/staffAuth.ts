@@ -15,16 +15,6 @@ const validateStaffLogin = [
   body('password').isLength({ min: 1 }).withMessage('Password is required'),
 ];
 
-const validateStaffRegister = [
-  body('username').trim().isLength({ min: 3, max: 100 }).withMessage('Username must be between 3 and 100 characters'),
-  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters long'),
-  body('email').isEmail().withMessage('Valid email is required'),
-  body('firstName').trim().isLength({ min: 1, max: 100 }).withMessage('First name is required'),
-  body('lastName').trim().isLength({ min: 1, max: 100 }).withMessage('Last name is required'),
-  body('department').trim().isLength({ min: 1, max: 100 }).withMessage('Department is required'),
-  body('position').trim().isLength({ min: 1, max: 100 }).withMessage('Position is required'),
-  body('hireDate').isISO8601().withMessage('Valid hire date is required'),
-];
 
 const validatePasswordChange = [
   body('currentPassword').isLength({ min: 1 }).withMessage('Current password is required'),

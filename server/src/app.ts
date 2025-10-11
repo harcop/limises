@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import { logger } from './utils/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { initializeDatabase } from './database/connection';
+import { getEnvConfig } from './utils/env';
 
 // Import route modules
 import staffAuthRoutes from './routes/staffAuth';
@@ -19,7 +20,8 @@ import { ModuleManager } from './modules/ModuleManager';
 dotenv.config();
 
 const app = express();
-const PORT = process.env['PORT'] || 4001;
+const config = getEnvConfig();
+const PORT = config.PORT;
 
 // Initialize module manager
 const moduleManager = new ModuleManager();
@@ -29,7 +31,7 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: process.env['CORS_ORIGIN'] || 'http://localhost:3000',
+  origin: config.CORS_ORIGIN,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-User-ID', 'X-User-Roles']
@@ -37,8 +39,8 @@ app.use(cors({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '900000'), // 15 minutes
-  max: parseInt(process.env['RATE_LIMIT_MAX_REQUESTS'] || '100'), // limit each IP to 100 requests per windowMs
+  windowMs: config.RATE_LIMIT_WINDOW_MS, // 15 minutes
+  max: config.RATE_LIMIT_MAX_REQUESTS, // limit each IP to 100 requests per windowMs
   message: {
     error: 'Too many requests from this IP, please try again later.'
   },
@@ -67,7 +69,7 @@ app.get('/health', (_req, res) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env['NODE_ENV'] || 'development'
+    environment: config.NODE_ENV
   });
 });
 
@@ -131,7 +133,7 @@ async function startServer(): Promise<void> {
     
     app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`);
-      logger.info(`Environment: ${process.env['NODE_ENV'] || 'development'}`);
+      logger.info(`Environment: ${config.NODE_ENV}`);
       logger.info(`API Documentation: http://localhost:${PORT}/api`);
     });
   } catch (error) {

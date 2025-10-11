@@ -1,28 +1,28 @@
 import jwt from 'jsonwebtoken';
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
 import { AuthRequest, JWTPayload } from '../types';
 import { StaffModel, StaffAuthModel } from '../models';
+import { getEnvConfig } from '../utils/env';
 
 // Generate JWT token
 export const generateToken = (userId: string, roles: string[] = []): string => {
-  return jwt.sign(
-    { 
-      userId, 
-      roles,
-      iat: Math.floor(Date.now() / 1000)
-    },
-    process.env.JWT_SECRET!,
-    { 
-      expiresIn: process.env.JWT_EXPIRES_IN || '24h' 
-    }
-  );
+  const config = getEnvConfig();
+  const payload = { 
+    userId, 
+    roles,
+    iat: Math.floor(Date.now() / 1000)
+  };
+  return jwt.sign(payload, config.JWT_SECRET, { 
+    expiresIn: '24h'
+  });
 };
 
 // Verify JWT token
 export const verifyToken = (token: string): JWTPayload => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    const config = getEnvConfig();
+    return jwt.verify(token, config.JWT_SECRET) as JWTPayload;
   } catch (error) {
     throw new Error('Invalid token');
   }
@@ -67,7 +67,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
       // Get staff details
       const staff = await StaffModel.findOne({ 
-        staffId: staffAuth.staffId, 
+        staffId: (staffAuth as any).staffId, 
         status: 'active' 
       });
 
@@ -81,16 +81,16 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
       // Add user info to request
       req.user = {
-        userId: staffAuth.authId,
-        staffId: staffAuth.staffId,
-        username: staffAuth.username,
-        email: staffAuth.email,
+        userId: (staffAuth as any).authId,
+        staffId: (staffAuth as any).staffId,
+        username: (staffAuth as any).username,
+        email: (staffAuth as any).email,
         firstName: staff.firstName,
         lastName: staff.lastName,
         department: staff.department,
         position: staff.position,
-        roles: staffAuth.roles || [],
-        permissions: staffAuth.permissions || []
+        roles: (staffAuth as any).roles || [],
+        permissions: (staffAuth as any).permissions || []
       };
 
       next();
@@ -171,7 +171,7 @@ export const checkPermission = (permission: string) => {
 };
 
 // Optional authentication middleware (doesn't fail if no token)
-export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+export const optionalAuth = async (req: AuthRequest, _res: Response, next: NextFunction): Promise<void> => {
   try {
     let token: string | undefined;
 
@@ -192,22 +192,22 @@ export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFu
         if (staffAuth) {
           // Get staff details
           const staff = await StaffModel.findOne({ 
-            staffId: staffAuth.staffId, 
+            staffId: (staffAuth as any).staffId, 
             status: 'active' 
           });
 
           if (staff) {
             req.user = {
-              userId: staffAuth.authId,
-              staffId: staffAuth.staffId,
-              username: staffAuth.username,
-              email: staffAuth.email,
+              userId: (staffAuth as any).authId,
+              staffId: (staffAuth as any).staffId,
+              username: (staffAuth as any).username,
+              email: (staffAuth as any).email,
               firstName: staff.firstName,
               lastName: staff.lastName,
               department: staff.department,
               position: staff.position,
-              roles: staffAuth.roles || [],
-              permissions: staffAuth.permissions || []
+              roles: (staffAuth as any).roles || [],
+              permissions: (staffAuth as any).permissions || []
             };
           }
         }

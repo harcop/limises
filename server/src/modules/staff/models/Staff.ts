@@ -21,49 +21,49 @@ const StaffSchema = new Schema<IStaff>({
     type: String,
     required: true,
     trim: true,
-    description: 'Staff member's first name'
+    description: 'Staff member\'s first name'
   },
   lastName: {
     type: String,
     required: true,
     trim: true,
-    description: 'Staff member's last name'
+    description: 'Staff member\'s last name'
   },
   middleName: {
     type: String,
     trim: true,
-    description: 'Staff member's middle name (optional)'
+    description: 'Staff member\'s middle name (optional)'
   },
   email: {
     type: String,
     required: true,
     unique: true,
-    description: 'Staff member's work email address'
+    description: 'Staff member\'s work email address'
   },
   phone: {
     type: String,
-    description: 'Staff member's primary phone number'
+    description: 'Staff member\'s primary phone number'
   },
   address: {
     type: String,
-    description: 'Staff member's home address'
+    description: 'Staff member\'s home address'
   },
   city: {
     type: String,
-    description: 'Staff member's city of residence'
+    description: 'Staff member\'s city of residence'
   },
   state: {
     type: String,
-    description: 'Staff member's state or province'
+    description: 'Staff member\'s state or province'
   },
   zipCode: {
     type: String,
-    description: 'Staff member's postal or ZIP code'
+    description: 'Staff member\'s postal or ZIP code'
   },
   country: {
     type: String,
     default: 'USA',
-    description: 'Staff member's country of residence'
+    description: 'Staff member\'s country of residence'
   },
   department: {
     type: String,
@@ -102,7 +102,7 @@ const StaffSchema = new Schema<IStaff>({
   },
   photoUrl: {
     type: String,
-    description: 'URL to staff member's profile photo'
+    description: 'URL to staff member\'s profile photo'
   },
   emergencyContactName: {
     type: String,

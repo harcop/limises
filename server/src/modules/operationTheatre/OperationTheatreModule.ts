@@ -15,15 +15,8 @@ export class OperationTheatreModule extends BaseModule {
     // Apply authentication to all routes
     this.router.use(authenticate);
 
-    // Health check endpoint
-    this.router.get('/health', (req, res) => {
-      res.json({
-        success: true,
-        message: 'Operation Theatre module is active',
-        module: 'OperationTheatreModule',
-        timestamp: new Date().toISOString()
-      });
-    });
+    // Initialize health check
+    this.initializeHealthCheck();
 
     // ==============================================
     // OPERATION THEATRE MANAGEMENT

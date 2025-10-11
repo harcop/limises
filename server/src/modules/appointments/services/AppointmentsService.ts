@@ -7,13 +7,14 @@ import {
   isWithinBusinessHours,
   sanitizeString
 } from '../../../utils/helpers';
+import moment from 'moment';
 
 export interface CreateAppointmentDto {
   patientId: string;
   staffId: string;
   appointmentDate: string;
-  startTime: string;
-  endTime?: string;
+  appointmentTime: string;
+  duration?: number;
   appointmentType: string;
   reasonForVisit?: string;
   notes?: string;
@@ -22,8 +23,8 @@ export interface CreateAppointmentDto {
 
 export interface UpdateAppointmentDto {
   appointmentDate?: string;
-  startTime?: string;
-  endTime?: string;
+  appointmentTime?: string;
+  duration?: number;
   appointmentType?: string;
   reasonForVisit?: string;
   notes?: string;
@@ -52,10 +53,45 @@ export class AppointmentsService extends BaseService {
     super('AppointmentsService');
   }
 
+  private async checkAppointmentConflict(
+    staffId: string, 
+    appointmentDate: string, 
+    appointmentTime: string, 
+    duration: number, 
+    excludeAppointmentId?: string
+  ): Promise<boolean> {
+    const startTime = moment(appointmentTime, 'HH:mm');
+    const endTime = moment(appointmentTime, 'HH:mm').add(duration, 'minutes');
+    
+    const query: any = {
+      staffId,
+      appointmentDate,
+      status: { $in: ['scheduled', 'confirmed', 'in_progress'] }
+    };
+    
+    if (excludeAppointmentId) {
+      query.appointmentId = { $ne: excludeAppointmentId };
+    }
+    
+    const existingAppointments = await AppointmentModel.find(query);
+    
+    return existingAppointments.some(appointment => {
+      const existingStart = moment(appointment.appointmentTime, 'HH:mm');
+      const existingEnd = moment(appointment.appointmentTime, 'HH:mm').add(appointment.duration, 'minutes');
+      
+      return hasTimeConflict(
+        startTime.format('HH:mm'),
+        endTime.format('HH:mm'),
+        existingStart.format('HH:mm'),
+        existingEnd.format('HH:mm')
+      );
+    });
+  }
+
   async createAppointment(appointmentData: CreateAppointmentDto): Promise<any> {
     try {
       // Validate appointment date is not in the past
-      const appointmentDateTime = new Date(`${appointmentData.appointmentDate} ${appointmentData.startTime}`);
+      const appointmentDateTime = new Date(`${appointmentData.appointmentDate} ${appointmentData.appointmentTime}`);
       if (appointmentDateTime < new Date()) {
         throw new Error('Cannot schedule appointments in the past');
       }
@@ -81,11 +117,11 @@ export class AppointmentsService extends BaseService {
       }
 
       // Check for time conflicts
-      const hasConflict = await hasTimeConflict(
+      const hasConflict = await this.checkAppointmentConflict(
         appointmentData.staffId,
         appointmentData.appointmentDate,
-        appointmentData.startTime,
-        appointmentData.endTime || calculateAppointmentDuration(appointmentData.startTime, appointmentData.appointmentType)
+        appointmentData.appointmentTime,
+        appointmentData.duration || calculateAppointmentDuration(appointmentData.appointmentType)
       );
 
       if (hasConflict) {
@@ -93,7 +129,7 @@ export class AppointmentsService extends BaseService {
       }
 
       // Check business hours
-      if (!isWithinBusinessHours(appointmentData.startTime)) {
+      if (!isWithinBusinessHours(appointmentData.appointmentTime)) {
         throw new Error('Appointment time is outside business hours');
       }
 
@@ -106,8 +142,8 @@ export class AppointmentsService extends BaseService {
         patientId: appointmentData.patientId,
         staffId: appointmentData.staffId,
         appointmentDate: appointmentData.appointmentDate,
-        startTime: appointmentData.startTime,
-        endTime: appointmentData.endTime || calculateAppointmentDuration(appointmentData.startTime, appointmentData.appointmentType),
+        appointmentTime: appointmentData.appointmentTime,
+        duration: appointmentData.duration || calculateAppointmentDuration(appointmentData.appointmentType),
         appointmentType: appointmentData.appointmentType,
         reasonForVisit: appointmentData.reasonForVisit ? sanitizeString(appointmentData.reasonForVisit) : undefined,
         notes: appointmentData.notes ? sanitizeString(appointmentData.notes) : undefined,
@@ -125,8 +161,8 @@ export class AppointmentsService extends BaseService {
         patientId: appointmentData.patientId,
         staffId: appointmentData.staffId,
         appointmentDate: appointmentData.appointmentDate,
-        startTime: appointmentData.startTime,
-        endTime: appointment.endTime,
+        appointmentTime: appointmentData.appointmentTime,
+        duration: appointment.duration,
         appointmentType: appointmentData.appointmentType,
         status: 'scheduled'
       };
@@ -207,16 +243,16 @@ export class AppointmentsService extends BaseService {
       }
 
       // If updating time, check for conflicts
-      if (updateData.startTime || updateData.endTime || updateData.appointmentDate) {
+      if (updateData.appointmentTime || updateData.duration || updateData.appointmentDate) {
         const appointmentDate = updateData.appointmentDate || existingAppointment.appointmentDate;
-        const startTime = updateData.startTime || existingAppointment.startTime;
-        const endTime = updateData.endTime || existingAppointment.endTime;
+        const appointmentTime = updateData.appointmentTime || existingAppointment.appointmentTime;
+        const duration = updateData.duration || existingAppointment.duration;
 
-        const hasConflict = await hasTimeConflict(
+        const hasConflict = await this.checkAppointmentConflict(
           existingAppointment.staffId,
           appointmentDate,
-          startTime,
-          endTime,
+          appointmentTime,
+          duration,
           appointmentId // Exclude current appointment from conflict check
         );
 
@@ -227,8 +263,14 @@ export class AppointmentsService extends BaseService {
 
       // Sanitize string fields
       const sanitizedData = { ...updateData };
-      if (sanitizedData.reasonForVisit) sanitizedData.reasonForVisit = sanitizeString(sanitizedData.reasonForVisit);
-      if (sanitizedData.notes) sanitizedData.notes = sanitizeString(sanitizedData.notes);
+      if (sanitizedData.reasonForVisit) {
+        const sanitized = sanitizeString(sanitizedData.reasonForVisit);
+        if (sanitized) sanitizedData.reasonForVisit = sanitized;
+      }
+      if (sanitizedData.notes) {
+        const sanitized = sanitizeString(sanitizedData.notes);
+        if (sanitized) sanitizedData.notes = sanitized;
+      }
 
       const updatedAppointment = await AppointmentModel.findOneAndUpdate(
         { appointmentId },
@@ -267,7 +309,7 @@ export class AppointmentsService extends BaseService {
     }
   }
 
-  async rescheduleAppointment(appointmentId: string, newDate: string, newStartTime: string, newEndTime?: string): Promise<any> {
+  async rescheduleAppointment(appointmentId: string, newDate: string, newAppointmentTime: string, newDuration?: number): Promise<any> {
     try {
       // Check if appointment exists
       const existingAppointment = await AppointmentModel.findOne({ appointmentId });
@@ -276,12 +318,12 @@ export class AppointmentsService extends BaseService {
       }
 
       // Check for time conflicts with new time
-      const endTime = newEndTime || existingAppointment.endTime;
-      const hasConflict = await hasTimeConflict(
+      const duration = newDuration || existingAppointment.duration;
+      const hasConflict = await this.checkAppointmentConflict(
         existingAppointment.staffId,
         newDate,
-        newStartTime,
-        endTime,
+        newAppointmentTime,
+        duration,
         appointmentId
       );
 
@@ -290,7 +332,7 @@ export class AppointmentsService extends BaseService {
       }
 
       // Check business hours
-      if (!isWithinBusinessHours(newStartTime)) {
+      if (!isWithinBusinessHours(newAppointmentTime)) {
         throw new Error('New appointment time is outside business hours');
       }
 
@@ -298,8 +340,8 @@ export class AppointmentsService extends BaseService {
         { appointmentId },
         { 
           appointmentDate: newDate,
-          startTime: newStartTime,
-          endTime: endTime,
+          appointmentTime: newAppointmentTime,
+          duration: duration,
           status: 'scheduled',
           updatedAt: new Date().toISOString()
         },
@@ -408,7 +450,7 @@ export class AppointmentsService extends BaseService {
 
         // Check if this slot conflicts with existing appointments
         const hasConflict = existingAppointments.some(appointment => {
-          return (slotStart < appointment.endTime && slotEnd > appointment.startTime);
+          return (slotStart < appointment.appointmentTime && slotEnd > appointment.appointmentTime);
         });
 
         if (!hasConflict) {

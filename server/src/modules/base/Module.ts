@@ -27,7 +27,7 @@ export abstract class BaseModule {
   }
 
   protected initializeHealthCheck(): void {
-    this.router.get('/health', (req, res) => {
+    this.router.get('/health', (_req, res) => {
       res.json({
         success: true,
         message: `${this.moduleName} is active`,

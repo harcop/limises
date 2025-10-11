@@ -1,8 +1,10 @@
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
+import { getEnvConfig } from '../utils/env';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/emr_system';
-const MONGODB_DATABASE = process.env.MONGODB_DATABASE || 'emr_system';
+const config = getEnvConfig();
+const MONGODB_URI = config.MONGODB_URI;
+const MONGODB_DATABASE = config.MONGODB_DATABASE;
 
 // MongoDB connection options
 const options = {

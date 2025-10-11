@@ -1,6 +1,6 @@
 import { EmployeeRecordModel, LeaveRequestModel, PerformanceReviewModel, TrainingRecordModel } from '../models';
 import { CreateEmployeeRecordDto, UpdateEmployeeRecordDto, CreateLeaveRequestDto, UpdateLeaveRequestDto, ApproveLeaveRequestDto, CreatePerformanceReviewDto, UpdatePerformanceReviewDto, CreateTrainingRecordDto, UpdateTrainingRecordDto, CompleteTrainingDto } from '../dto/CreateHRDto';
-import { v4 as uuidv4 } from 'uuid';
+import { IdGenerator } from '../../../utils/idGenerator';
 import { logger } from '../../../utils/logger';
 
 export class HRService {
@@ -10,7 +10,7 @@ export class HRService {
 
   async createEmployeeRecord(employeeData: CreateEmployeeRecordDto): Promise<any> {
     try {
-      const employeeId = `EMP${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      const employeeId = IdGenerator.generateEmployeeId();
       
       const employee = new EmployeeRecordModel({
         employeeId,
@@ -127,7 +127,7 @@ export class HRService {
         throw new Error('Overlapping leave request exists');
       }
 
-      const leaveId = `LEAVE${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      const leaveId = IdGenerator.generateLeaveId();
       
       const leave = new LeaveRequestModel({
         leaveId,
@@ -262,7 +262,7 @@ export class HRService {
 
   async createPerformanceReview(reviewData: CreatePerformanceReviewDto): Promise<any> {
     try {
-      const reviewId = `REVIEW${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      const reviewId = IdGenerator.generateReviewId();
       
       const review = new PerformanceReviewModel({
         reviewId,
@@ -359,7 +359,7 @@ export class HRService {
 
   async createTrainingRecord(trainingData: CreateTrainingRecordDto): Promise<any> {
     try {
-      const trainingId = `TRAIN${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      const trainingId = IdGenerator.generateTrainingId();
       
       const training = new TrainingRecordModel({
         trainingId,

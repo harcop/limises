@@ -20,6 +20,16 @@ const BillingAccountSchema = new Schema<IBillingAccount>({
     required: true,
     unique: true
   },
+  accountType: {
+    type: String,
+    default: 'self_pay'
+  },
+  insuranceProvider: {
+    type: String
+  },
+  policyNumber: {
+    type: String
+  },
   balance: {
     type: Number,
     default: 0

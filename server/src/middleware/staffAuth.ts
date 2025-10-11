@@ -1,31 +1,31 @@
 import jwt from 'jsonwebtoken';
 import { Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
-import { StaffAuthRequest, StaffAuth, JWTPayload } from '../types';
+import { StaffAuthRequest, JWTPayload } from '../types';
 import { StaffModel, StaffAuthModel } from '../models';
+import { getEnvConfig } from '../utils/env';
 
 // Generate JWT token for staff
 export const generateStaffToken = (authId: string, staffId: string, username: string, roles: string[] = []): string => {
-  return jwt.sign(
-    { 
-      authId,
-      staffId,
-      username,
-      roles,
-      userType: 'staff',
-      iat: Math.floor(Date.now() / 1000)
-    },
-    process.env.JWT_SECRET!,
-    { 
-      expiresIn: process.env.JWT_EXPIRES_IN || '8h' // Shorter expiry for staff
-    }
-  );
+  const config = getEnvConfig();
+  const payload = { 
+    authId,
+    staffId,
+    username,
+    roles,
+    userType: 'staff',
+    iat: Math.floor(Date.now() / 1000)
+  };
+  return jwt.sign(payload, config.JWT_SECRET, { 
+    expiresIn: '8h'
+  });
 };
 
 // Verify JWT token for staff
 export const verifyStaffToken = (token: string): JWTPayload => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    const config = getEnvConfig();
+    const decoded = jwt.verify(token, config.JWT_SECRET) as JWTPayload;
     if (decoded.userType !== 'staff') {
       throw new Error('Invalid token type for staff');
     }
@@ -73,7 +73,7 @@ export const authenticateStaff = async (req: StaffAuthRequest, res: Response, ne
       }
 
       // Check if account is locked
-      if (staffAuth.lockedUntil && new Date(staffAuth.lockedUntil) > new Date()) {
+      if ((staffAuth as any).lockedUntil && new Date((staffAuth as any).lockedUntil) > new Date()) {
         res.status(423).json({
           success: false,
           error: 'Staff account is temporarily locked'
@@ -83,7 +83,7 @@ export const authenticateStaff = async (req: StaffAuthRequest, res: Response, ne
 
       // Get staff details
       const staff = await StaffModel.findOne({ 
-        staffId: staffAuth.staffId, 
+        staffId: (staffAuth as any).staffId, 
         status: 'active' 
       });
 
@@ -97,12 +97,12 @@ export const authenticateStaff = async (req: StaffAuthRequest, res: Response, ne
 
       // Add staff info to request
       req.user = {
-        authId: staffAuth.authId,
-        staffId: staffAuth.staffId,
-        username: staffAuth.username,
-        email: staffAuth.email,
-        roles: staffAuth.roles || [],
-        permissions: staffAuth.permissions || []
+        authId: (staffAuth as any).authId,
+        staffId: (staffAuth as any).staffId,
+        username: (staffAuth as any).username,
+        email: (staffAuth as any).email,
+        roles: (staffAuth as any).roles || [],
+        permissions: (staffAuth as any).permissions || []
       };
 
       next();
@@ -174,7 +174,7 @@ export const checkStaffPermission = (permission: string) => {
 };
 
 // Optional staff authentication middleware (doesn't fail if no token)
-export const optionalStaffAuth = async (req: StaffAuthRequest, res: Response, next: NextFunction): Promise<void> => {
+export const optionalStaffAuth = async (req: StaffAuthRequest, _res: Response, next: NextFunction): Promise<void> => {
   try {
     let token: string | undefined;
 
@@ -195,18 +195,18 @@ export const optionalStaffAuth = async (req: StaffAuthRequest, res: Response, ne
         if (staffAuth) {
           // Get staff details
           const staff = await StaffModel.findOne({ 
-            staffId: staffAuth.staffId, 
+            staffId: (staffAuth as any).staffId, 
             status: 'active' 
           });
 
           if (staff) {
             req.user = {
-              authId: staffAuth.authId,
-              staffId: staffAuth.staffId,
-              username: staffAuth.username,
-              email: staffAuth.email,
-              roles: staffAuth.roles || [],
-              permissions: staffAuth.permissions || []
+              authId: (staffAuth as any).authId,
+              staffId: (staffAuth as any).staffId,
+              username: (staffAuth as any).username,
+              email: (staffAuth as any).email,
+              roles: (staffAuth as any).roles || [],
+              permissions: (staffAuth as any).permissions || []
             };
           }
         }

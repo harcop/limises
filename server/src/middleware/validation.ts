@@ -21,11 +21,10 @@ export const validatePatient: ValidationChain[] = [
   body('lastName').trim().isLength({ min: 1, max: 100 }).withMessage('Last name is required and must be less than 100 characters'),
   body('dateOfBirth').isISO8601().withMessage('Valid date of birth is required'),
   body('gender').isIn(['male', 'female', 'other']).withMessage('Gender must be male, female, or other'),
-  body('phone').optional().isMobilePhone().withMessage('Valid phone number is required'),
+  body('phone').optional().isMobilePhone('any').withMessage('Valid phone number is required'),
   body('email').optional().isEmail().withMessage('Valid email is required'),
   body('emergencyContactName').trim().isLength({ min: 1, max: 200 }).withMessage('Emergency contact name is required'),
-  body('emergencyContactPhone').isMobilePhone().withMessage('Valid emergency contact phone is required'),
-  handleValidationErrors
+  body('emergencyContactPhone').isMobilePhone('any').withMessage('Valid emergency contact phone is required')
 ];
 
 export const validatePatientUpdate: ValidationChain[] = [
@@ -33,9 +32,8 @@ export const validatePatientUpdate: ValidationChain[] = [
   body('lastName').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Last name must be less than 100 characters'),
   body('dateOfBirth').optional().isISO8601().withMessage('Valid date of birth is required'),
   body('gender').optional().isIn(['male', 'female', 'other']).withMessage('Gender must be male, female, or other'),
-  body('phone').optional().isMobilePhone().withMessage('Valid phone number is required'),
+  body('phone').optional().isMobilePhone('any').withMessage('Valid phone number is required'),
   body('email').optional().isEmail().withMessage('Valid email is required'),
-  handleValidationErrors
 ];
 
 
@@ -44,11 +42,10 @@ export const validateStaff: ValidationChain[] = [
   body('firstName').trim().isLength({ min: 1, max: 100 }).withMessage('First name is required and must be less than 100 characters'),
   body('lastName').trim().isLength({ min: 1, max: 100 }).withMessage('Last name is required and must be less than 100 characters'),
   body('email').isEmail().withMessage('Valid email is required'),
-  body('phone').optional().isMobilePhone().withMessage('Valid phone number is required'),
+  body('phone').optional().isMobilePhone('any').withMessage('Valid phone number is required'),
   body('department').trim().isLength({ min: 1, max: 100 }).withMessage('Department is required'),
   body('position').trim().isLength({ min: 1, max: 100 }).withMessage('Position is required'),
   body('hireDate').isISO8601().withMessage('Valid hire date is required'),
-  handleValidationErrors
 ];
 
 // User validation rules
@@ -56,7 +53,6 @@ export const validateUser: ValidationChain[] = [
   body('username').trim().isLength({ min: 3, max: 100 }).withMessage('Username must be between 3 and 100 characters'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
   body('email').isEmail().withMessage('Valid email is required'),
-  handleValidationErrors
 ];
 
 // Appointment validation rules
@@ -67,7 +63,6 @@ export const validateAppointment: ValidationChain[] = [
   body('startTime').matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('Valid start time is required (HH:MM format)'),
   body('endTime').matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('Valid end time is required (HH:MM format)'),
   body('appointmentType').isIn(['consultation', 'follow_up', 'procedure', 'emergency', 'telemedicine']).withMessage('Valid appointment type is required'),
-  handleValidationErrors
 ];
 
 // Clinical note validation rules
@@ -80,7 +75,6 @@ export const validateClinicalNote: ValidationChain[] = [
   body('physicalExamination').optional().trim().isLength({ max: 2000 }).withMessage('Physical examination must be less than 2000 characters'),
   body('assessment').optional().trim().isLength({ max: 2000 }).withMessage('Assessment must be less than 2000 characters'),
   body('plan').optional().trim().isLength({ max: 2000 }).withMessage('Plan must be less than 2000 characters'),
-  handleValidationErrors
 ];
 
 // Prescription validation rules
@@ -93,7 +87,6 @@ export const validatePrescription: ValidationChain[] = [
   body('duration').trim().isLength({ min: 1, max: 100 }).withMessage('Duration is required and must be less than 100 characters'),
   body('quantity').isInt({ min: 1 }).withMessage('Quantity must be a positive integer'),
   body('refillsAllowed').optional().isInt({ min: 0 }).withMessage('Refills allowed must be a non-negative integer'),
-  handleValidationErrors
 ];
 
 // Insurance validation rules
@@ -104,7 +97,6 @@ export const validateInsurance: ValidationChain[] = [
   body('effectiveDate').isISO8601().withMessage('Valid effective date is required'),
   body('subscriberName').trim().isLength({ min: 1, max: 200 }).withMessage('Subscriber name is required'),
   body('relationshipToSubscriber').isIn(['self', 'spouse', 'child', 'other']).withMessage('Valid relationship is required'),
-  handleValidationErrors
 ];
 
 // Billing validation rules
@@ -115,7 +107,6 @@ export const validateCharge: ValidationChain[] = [
   body('serviceDate').isISO8601().withMessage('Valid service date is required'),
   body('unitPrice').isDecimal().withMessage('Valid unit price is required'),
   body('totalAmount').isDecimal().withMessage('Valid total amount is required'),
-  handleValidationErrors
 ];
 
 export const validatePayment: ValidationChain[] = [
@@ -124,7 +115,6 @@ export const validatePayment: ValidationChain[] = [
   body('paymentDate').isISO8601().withMessage('Valid payment date is required'),
   body('paymentMethod').isIn(['cash', 'credit_card', 'debit_card', 'check', 'insurance', 'bank_transfer']).withMessage('Valid payment method is required'),
   body('paymentAmount').isDecimal().withMessage('Valid payment amount is required'),
-  handleValidationErrors
 ];
 
 // Lab order validation rules
@@ -134,34 +124,28 @@ export const validateLabOrder: ValidationChain[] = [
   body('orderDate').isISO8601().withMessage('Valid order date is required'),
   body('testType').trim().isLength({ min: 1, max: 100 }).withMessage('Test type is required'),
   body('priority').isIn(['routine', 'urgent', 'stat']).withMessage('Valid priority is required'),
-  handleValidationErrors
 ];
 
 // Parameter validation
 export const validateId: ValidationChain[] = [
   param('id').trim().isLength({ min: 1 }).withMessage('Valid ID is required'),
-  handleValidationErrors
 ];
 
 export const validatePatientId: ValidationChain[] = [
   param('patientId').trim().isLength({ min: 1 }).withMessage('Valid patient ID is required'),
-  handleValidationErrors
 ];
 
 export const validateStaffId: ValidationChain[] = [
   param('staffId').trim().isLength({ min: 1 }).withMessage('Valid staff ID is required'),
-  handleValidationErrors
 ];
 
 // Query validation
 export const validatePagination: ValidationChain[] = [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-  handleValidationErrors
 ];
 
 export const validateDateRange: ValidationChain[] = [
   query('startDate').optional().isISO8601().withMessage('Valid start date is required'),
   query('endDate').optional().isISO8601().withMessage('Valid end date is required'),
-  handleValidationErrors
 ];

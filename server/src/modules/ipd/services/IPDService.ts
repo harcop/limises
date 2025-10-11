@@ -1,6 +1,5 @@
 import { WardModel, BedModel, IPDAdmissionModel } from '../models';
 import { CreateWardDto, UpdateWardDto, CreateBedDto, UpdateBedDto, CreateIPDAdmissionDto, UpdateIPDAdmissionDto, DischargePatientDto } from '../dto/CreateIPDDto';
-import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../../../utils/logger';
 
 export class IPDService {

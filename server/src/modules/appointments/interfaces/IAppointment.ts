@@ -12,6 +12,10 @@ export interface Appointment {
   status: 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
   duration: number;
   notes?: string;
+  roomNumber?: string;
+  reason?: string;
+  followUpRequired?: boolean;
+  followUpDate?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -25,6 +29,21 @@ export interface CreateAppointmentRequest {
   appointmentType: 'consultation' | 'follow_up' | 'procedure' | 'emergency';
   duration?: number;
   notes?: string;
+  roomNumber?: string;
+  reason?: string;
+  followUpRequired?: boolean;
+}
+
+export interface UpdateAppointmentRequest {
+  appointmentDate?: string;
+  appointmentTime?: string;
+  appointmentType?: 'consultation' | 'follow_up' | 'procedure' | 'emergency';
+  duration?: number;
+  notes?: string;
+  roomNumber?: string;
+  reason?: string;
+  followUpRequired?: boolean;
+  status?: 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
 }
 
 // Statistics Types

@@ -1,6 +1,7 @@
 import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
+import { getEnvConfig } from './env';
 
 // Ensure logs directory exists
 const logsDir = path.join(__dirname, '../../logs');
@@ -33,8 +34,9 @@ const consoleFormat = winston.format.combine(
 );
 
 // Create logger instance
+const config = getEnvConfig();
 export const logger = winston.createLogger({
-  level: process.env['LOG_LEVEL'] || 'info',
+  level: config.LOG_LEVEL,
   format: logFormat,
   defaultMeta: { service: 'emr-system' },
   transports: [
@@ -54,7 +56,7 @@ export const logger = winston.createLogger({
 });
 
 // Add console transport for development
-if (process.env['NODE_ENV'] !== 'production') {
+if (config.NODE_ENV !== 'production') {
   logger.add(new winston.transports.Console({
     format: consoleFormat
   }));
